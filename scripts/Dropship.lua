@@ -82,6 +82,24 @@ callerID = nil
 cargo = {}
 numCargo = 0
 
+function SetFlightContext(callerUnitID, callerBeaconID, extraction)
+	callerID = callerUnitID
+	beaconID = callerBeaconID
+	extractionFlight = extraction == true
+end
+
+function ExtractionLanded()
+	if extractionFlight and GG.ExpeditionDropshipLanded then
+		GG.ExpeditionDropshipLanded(unitID, teamID)
+	end
+end
+
+function ExtractionTakeOff()
+	if extractionFlight and landed then
+		StartThread(TakeOff)
+	end
+end
+
 function LoadCargo(cargoID, callerUnitID, callerBeaconID)
 	if cargoID and Spring.ValidUnitID(cargoID) and not Spring.GetUnitIsDead(cargoID) then
 		--Spring.Echo("Loading", cargoID, "of type", UnitDefs[Spring.GetUnitDefID(cargoID)].name)
