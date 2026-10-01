@@ -22,6 +22,17 @@
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 local options = {
+	{
+		key = "gamemode",
+		name = "Game Mode",
+		desc = "Selects the ruleset used for this match.",
+		type = "list",
+		def = "expedition",
+		items = {
+			{key = "classic", name = "Classic"},
+			{key = "expedition", name = "Expedition"},
+		},
+	},
 	----------------------------------------------------------------------------
 	{
 		key		= '1start',

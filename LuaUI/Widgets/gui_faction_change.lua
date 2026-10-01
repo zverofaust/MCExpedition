@@ -154,6 +154,10 @@ end
 -- Callins
 --------------------------------------------------------------------------------
 function widget:Initialize()
+	if Spring.GetGameRulesParam("gamemode") == "expedition" then
+		widgetHandler:RemoveWidget(self)
+		return
+	end
     factionState.active = false
     factionState.complete = false
     factionState.side = nil
