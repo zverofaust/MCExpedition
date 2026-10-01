@@ -25,7 +25,7 @@ local extractionCmdDesc = {
 	texture = "bitmaps/ui/submit.png",
 }
 
-local expeditionMode = Spring.GetGameRulesParam("gamemode") == "expedition"
+local expeditionMode = false
 local teamStates = {}
 local extractionDropships = {}
 
@@ -170,6 +170,7 @@ function gadget:GameFrame(frame)
 end
 
 function gadget:Initialize()
+	expeditionMode = Spring.GetGameRulesParam("gamemode") == "expedition"
 	if not expeditionMode then
 		gadgetHandler:RemoveGadget(self)
 		return
