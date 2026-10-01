@@ -359,7 +359,11 @@ function Drop()
 		Spring.MoveCtrl.SetRelativeVelocity(unitID, 0, 0, 0)
 		PlaySound("dropship_rumble")
 		TouchDown() -- not called by engine as not falling under gravity
-		UnloadCargo()
+		if extractionFlight then
+			ExtractionLanded()
+		else
+			UnloadCargo()
+		end
 	else -- bugging out
 		TakeOff(true) -- skip checks and get right to booster
 	end
