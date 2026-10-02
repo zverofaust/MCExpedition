@@ -1,0 +1,286 @@
+function widget:GetInfo()
+  return {
+    name      = "MC:L - Tickets & Resources",
+    desc      = "Displays Current Team Tickets and Resources",
+    author    = "FLOZi, zvero + ChatGPT",
+    date      = "06/04/2011",
+    license   = "GNU GPL, v2",
+    layer     = -1,
+    enabled   = true  --  loaded by default?
+  }
+end
+
+local modOptions
+if (Spring.GetModOptions) then
+  modOptions = Spring.GetModOptions()
+end
+local START_TICKETS = tonumber(modOptions.start_tickets) or 100
+local GAIA_TEAM_ID = Spring.GetGaiaTeamID()
+local GAIA_ALLY_ID = select(6, Spring.GetTeamInfo(GAIA_TEAM_ID))
+local MY_TEAM_ID = Spring.GetMyTeamID()
+local MY_ALLY_ID = select(6, Spring.GetTeamInfo(MY_TEAM_ID))
+
+local UPLINK_ID = UnitDefNames["outpost_uplink"].id
+local AIRCON_ID = UnitDefNames["outpost_aircon"].id
+local BEACON_ID = UnitDefNames["beacon"].id
+
+local allyBeaconCounts = {}
+
+-- user settings
+local clockConfig
+local fpsConfig
+
+-- localisations
+-- lua
+local floor 			= math.floor
+local format			= string.format
+-- SyncedRead
+local GetFPS 			= Spring.GetFPS
+local GetGameRulesParam	= Spring.GetGameRulesParam
+local GetGameSeconds 	= Spring.GetGameSeconds
+local GetTeamResources	= Spring.GetTeamResources
+local GetTeamRulesParam	= Spring.GetTeamRulesParam
+
+local allyTeams = Spring.GetAllyTeamList()
+for i = 1, #allyTeams do
+	local allyTeam = allyTeams[i]
+	allyBeaconCounts[allyTeam] = 0
+	if allyTeam == GAIA_ALLY_ID then allyTeams[i] = nil; break end
+end
+local xMax, yMax = Spring.GetViewGeometry()
+local playerAllyTeams = {} -- allyTeamID = {name1, name2 ...}
+local allyTeamColours = {}
+local colors = {}
+colors.red = "\255\255\101\101"
+colors.yellow = "\255\255\255\001"
+colors.green = "\255\001\255\001"
+colors.white = "\255\255\255\255"
+colors.black = "\255\001\001\001"
+colors.grey = "\255\160\160\160"
+colors.slategray = "\255\198\226\255"
+colors.teamGreen = "\255\153\204\000"
+colors.teamRed = "\255\172\089\089"
+
+local btFont
+local expeditionMode = false
+
+local allyTicketTexts = {}
+local ticketWidth = 0
+local cBillsText = "C-Bills: " .. colors.grey .. 0
+local salvageText = "Salvage: " .. colors.slategray .. 0
+local tonnageText= "Tonnage: " .. colors.yellow .. 0
+local c3Text = "C3 Limit:" .. colors.white .. 0
+local aeroC3Text = ""
+local gameTime = "Time: 0:00:00"
+local dropTime = "Dropship: 00:00"
+local artyTime = ""
+local haveArty = 0
+local haveAirCon = 0
+local fps = "fps: " .. colors.white .. GetFPS()
+local tempAmbient = ""
+local tempWater = ""
+local MAX_TEMP = 150
+
+local function FramesToMinutesAndSeconds(frames)
+	local gameSecs = floor(frames / 30)
+	local minutes = format("%02d",  floor(gameSecs / 60))
+	local seconds = format("%02d", gameSecs % 60)
+	return minutes, seconds
+end
+
+local function TicketText()
+	for i = 1, #allyTeams do
+		local allyTeam = allyTeams[i]
+		local tickets = GetGameRulesParam("tickets" .. allyTeam) or START_TICKETS
+		local playerName = playerAllyTeams[allyTeam] and playerAllyTeams[allyTeam][1] or "EnemyTeam"
+		ticketWidth = math.max(ticketWidth, playerName:len() + 64)
+		if tickets > START_TICKETS * 0.75 then
+			tickets = colors.green .. tickets
+		elseif tickets > START_TICKETS * 0.25 then
+			tickets = colors.yellow .. tickets
+		elseif tickets == 0 then
+			tickets = colors.black .. tickets
+		else
+			tickets = colors.red .. tickets
+		end
+		local textCol = allyTeamColours[allyTeam] or allyTeam == MY_ALLY_ID and colors.teamGreen or colors.teamRed
+		local ticketText = textCol .. playerName .. " [".. (allyBeaconCounts[allyTeam] or 0) .. "]" ..colors.white .. ": "  .. tickets
+		allyTicketTexts[allyTeam] = ticketText
+	end
+end
+
+
+function BeaconUpdate(allyTeam, new)
+	allyBeaconCounts[allyTeam] = new
+end
+
+local function FloatTo128(num)
+	return string.char(string.format("%03d",math.max(num * 255, 1)))
+end
+
+local function RGBtoString(r, g, b)
+	local rgb = {r, g, b}
+	return '\255' .. FloatTo128(rgb[1]) .. FloatTo128(rgb[2]) .. FloatTo128(rgb[3])
+end
+
+local function GetTempColour(temp)
+	local g = temp > 0 and (MAX_TEMP-temp)/MAX_TEMP or 0.01
+	local temp = math.max(temp+50, 0) -- ensure +ve
+	local r = temp/MAX_TEMP
+	local b = (MAX_TEMP - temp)/MAX_TEMP
+	return RGBtoString(r, g, b)
+end
+
+function widget:GameStart()--Preload()
+	local ambTemp = GetGameRulesParam("MAP_TEMP_AMBIENT") or 20
+	local watTemp = GetGameRulesParam("MAP_TEMP_WATER") or 10
+	tempAmbient = "Ambient: " .. GetTempColour(ambTemp) .. ambTemp .. colors.white .. " \'C"
+	tempWater = "Water: " .. GetTempColour(watTemp) .. watTemp .. colors.white .. " \'C"
+end
+
+function widget:Initialize()
+	expeditionMode = GetGameRulesParam("gamemode") == "expedition"
+	local playerList = Spring.GetPlayerList()
+	for i, playerID in ipairs(playerList) do
+		local name, active, spectator, teamID, allyTeamID = Spring.GetPlayerInfo(playerID)
+		if not spectator then
+			if not playerAllyTeams[allyTeamID] then
+				playerAllyTeams[allyTeamID] = {}
+			end
+			table.insert(playerAllyTeams[allyTeamID], name)
+			if not allyTeamColours[allyTeamID] then
+				allyTeamColours[allyTeamID] = RGBtoString(Spring.GetTeamColor(playerID))
+			end
+		end
+	end
+	clockConfig = Spring.GetConfigInt('ShowClock')
+	fpsConfig = Spring.GetConfigInt('ShowFPS')
+	Spring.SendCommands("resbar 0", "clock 0", "fps 0", "togglelos 1")
+	btFont = gl.LoadFont("LuaUI/Fonts/bt_oldstyle.ttf", 16, 2, 30)
+	TicketText()
+	haveArty = Spring.GetTeamUnitsCounts(MY_TEAM_ID)[UPLINK_ID] or 0
+	haveAirCon = Spring.GetTeamUnitsCounts(MY_TEAM_ID)[AIRCON_ID] or 0
+	for _, unitID in pairs(Spring.GetAllUnits()) do
+		widget:UnitCreated(unitID, Spring.GetUnitDefID(unitID), Spring.GetUnitTeam(unitID))
+	end
+	if Spring.GetGameFrame() > 0 then
+		widget:GameStart()
+	end
+	widgetHandler:RegisterGlobal("BEACONUPDATE", BeaconUpdate)
+end
+
+function widget:Shutdown()
+	Spring.SetConfigInt('ShowClock', clockConfig)
+	Spring.SetConfigInt('ShowFPS', fpsConfig)
+end
+
+function widget:PlayerChanged()
+	MY_TEAM_ID = Spring.GetMyTeamID()
+	MY_ALLY_ID = select(6, Spring.GetTeamInfo(MY_TEAM_ID))
+	haveArty = Spring.GetTeamUnitsCounts(MY_TEAM_ID)[UPLINK_ID] or 0 
+	haveAirCon = Spring.GetTeamUnitsCounts(MY_TEAM_ID)[AIRCON_ID] or 0 
+end
+
+function widget:UnitCreated(unitID, unitDefID, teamID)
+	if teamID == MY_TEAM_ID then
+		if unitDefID == UPLINK_ID then
+			haveArty = haveArty + 1
+		elseif unitDefID == AIRCON_ID then
+			haveAirCon = haveAirCon + 1
+		end
+	end
+end
+
+
+function widget:UnitDestroyed(unitID, unitDefID, teamID)
+	if teamID == MY_TEAM_ID then
+		if unitDefID == UPLINK_ID then
+			haveArty = haveArty - 1
+		elseif unitDefID == AIRCON_ID then
+			haveAirCon = haveAirCon - 1
+		end
+	end
+end
+
+function widget:GameFrame(n)
+	if n % 30 == 0 then
+		local gameSecs = GetGameSeconds()
+		local hours = format("%d",  floor(gameSecs / 3600))
+		local minutes = format("%02d",  floor(gameSecs / 60))
+		local seconds = format("%02d", gameSecs % 60)
+		gameTime = "Time: " .. colors.white .. hours .. colors.white .. ":" .. colors.white .. minutes .. colors.white .. ":" .. colors.white .. seconds
+		local coolDownFrame = tonumber(GetTeamRulesParam(MY_TEAM_ID, "DROPSHIP_COOLDOWN") or 0)
+		local countColour
+		if coolDownFrame >= 0 then
+			local frames = math.max(coolDownFrame - n, 0)
+			countColour = frames == 0 and colors.green or colors.red		
+			minutes, seconds = FramesToMinutesAndSeconds(frames)
+		else -- dropship is currently ingame
+			countColour = colors.red
+			minutes, seconds = "00", "00"
+		end
+		dropTime = "Dropship: " .. countColour .. minutes .. colors.white .. ":" .. countColour ..seconds		
+		if haveArty > 0 then
+			frames = math.max(tonumber(GetTeamRulesParam(MY_TEAM_ID, "UPLINK_ARTILLERY") or 0) - n, 0)
+			countColour = frames == 0 and colors.green or colors.red
+			minutes, seconds = FramesToMinutesAndSeconds(frames)
+			artyTime = "Artillery: " .. countColour .. minutes .. colors.white .. ":" .. countColour .. seconds
+		else
+			artyTime = ""
+		end
+		fps = "fps: " .. colors.white .. GetFPS()
+		local cBills = tonumber(GetTeamRulesParam(MY_TEAM_ID, "cbills") or 0) --floor(GetTeamResources(MY_TEAM_ID, "metal"))
+		cBillsText = "C-Bills: " .. colors.grey .. cBills
+		local salvage = tonumber(GetTeamRulesParam(MY_TEAM_ID, "salvage") or 0)
+		salvageText = "Salvage: " .. colors.slategray .. salvage
+		local tonnage = tonumber(GetTeamRulesParam(MY_TEAM_ID, "tonnage") or 0)
+		local maxTonnage = tonumber(GetTeamRulesParam(MY_TEAM_ID, "max_tonnage") or 10000)
+		maxTonnage = floor(maxTonnage) 
+		tonnage = floor(maxTonnage - (tonnage))
+		tonnageText = "Tonnage: " .. colors.yellow .. tonnage .. colors.white .. " / " .. colors.yellow .. maxTonnage
+		
+		local maxC3 = (GetTeamRulesParam(MY_TEAM_ID, "LANCES") or 1) * 4
+		local c3 = maxC3 - (GetTeamRulesParam(MY_TEAM_ID, "TEAM_SLOTS_REMAINING") or 4)
+		c3Text = "C3 Limit: " .. colors.white .. c3 .. colors.white .. " / " .. colors.white .. maxC3
+		
+		if haveAirCon > 0 then
+			local maxAeroC3 = 6 -- For now this is fixed
+			local aeroC3 = maxAeroC3 - (GetTeamRulesParam(MY_TEAM_ID, "TEAM_AERO_SLOTS_REMAINING") or 6)
+			c3Text = c3Text .. " : " .. colors.white .. aeroC3 .. colors.white .. " / " .. colors.white .. maxAeroC3
+		end
+		TicketText()
+	end
+end
+
+local tempHeight = yMax - 80 - (18 * #allyTeams)
+local timeHeight = tempHeight - 48
+
+
+function widget:ViewResize(viewSizeX, viewSizeY)
+	xMax, yMax = viewSizeX, viewSizeY
+end
+
+function widget:DrawScreen()
+	btFont:Begin()
+		if not expeditionMode then
+			btFont:Print(cBillsText, xMax * 0.30, yMax - 32, 16, "od")
+			btFont:Print(salvageText, xMax * 0.30, yMax - 48, 16, "od")
+			btFont:Print(tonnageText, xMax * 0.45, yMax - 32, 16, "od")
+			btFont:Print(c3Text, xMax * 0.45, yMax - 48, 16, "od")
+			btFont:Print(aeroC3Text, xMax * 0.45, yMax - 64, 16, "od")
+			btFont:Print(dropTime, xMax * 0.75, yMax - 32, 16, "odr")
+			if (haveArty or 0) > 0 then
+				btFont:Print(artyTime, xMax * 0.75, yMax - 48, 16, "odr")
+			end
+			btFont:Print("Tickets:", xMax - 58, yMax - 32, 16, "odr")
+			for allyTeam, ticketText in pairs(allyTicketTexts) do
+				btFont:Print(ticketText, xMax - 16, yMax - 18 * (allyTeam + 4), 16, "odr")
+			end
+		end
+		btFont:Print(tempAmbient, xMax - 16, tempHeight, 12, "odr")
+		btFont:Print(tempWater, xMax - 16, tempHeight - 16, 12, "odr")
+
+		btFont:Print(gameTime, xMax - 16, timeHeight, 12, "odr")
+		btFont:Print(fps, xMax - 16, timeHeight - 16, 12, "odr")
+	btFont:End()
+end

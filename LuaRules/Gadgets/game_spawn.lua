@@ -100,13 +100,13 @@ end
 local function SpawnStartUnit(teamID)
 	if not activeTeams[teamID] then return false end
 	local startUnit = GetStartUnit(teamID)--sideStartUnits[teamID]
-	if (startUnit and startUnit ~= "") then
+	if (startUnit and startUnit ~= "") and (not expeditionMode or #Spring.GetPlayerList(teamID) > 0) then
 		-- spawn the specified start unit
 		local startPos = teamStarts[teamID]
 		local x,y,z
 		x = startPos.x
-		y = startPos.y
 		z = startPos.z
+		y = startPos.y or Spring.GetGroundHeight(x, z)
 		-- facing toward map center
 		local facing=math.abs(Game.mapSizeX/2 - x) > math.abs(Game.mapSizeZ/2 - z)
 			and ((x>Game.mapSizeX/2) and "west" or "east")

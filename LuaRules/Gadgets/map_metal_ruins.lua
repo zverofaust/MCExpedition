@@ -46,6 +46,13 @@
 --      Most camps fill every socket; occasionally one or two sockets are left
 --      empty for visual variation.
 --
+--  Revision 13:
+--      - Coordinates authored camp ownership with Expedition garrisons.
+--      - Claimed camp anchors are left for the garrison gadget instead of
+--        receiving a second neutral/civilian settlement.
+--      - Random map dressing also avoids Expedition garrison footprints.
+--      - Exposes the existing camp-decal sender for generated garrison sites.
+--
 --  Revision 12:
 --      - Removes random/default camp radius scaling; templates now always use
 --        their authored width, height, socket positions and exclusion radius.
@@ -1063,6 +1070,19 @@ local function IsNearCampFootprint(x, z, camps)
         end
     end
 
+    if GG.ExpeditionGarrisonSites then
+        for i = 1, #GG.ExpeditionGarrisonSites do
+            local site = GG.ExpeditionGarrisonSites[i]
+            local radius = (site.dressingExclusionRadius or 380) + MAP_DRESSING_CAMP_MARGIN
+            local dx = x - site.x
+            local dz = z - site.z
+
+            if dx * dx + dz * dz < radius * radius then
+                return true
+            end
+        end
+    end
+
     return false
 end
 
@@ -1355,6 +1375,8 @@ local function SendCampDecal(
     )
 end
 
+GG.SendCampTemplateDecal = SendCampDecal
+
 local function PlaceCamp(
     camp,
     campNumber,
@@ -1514,13 +1536,15 @@ local function PlaceCamps(camps)
     local placedBuildingPositions = {}
 
     for i = 1, #camps do
-        totalCreated =
-            totalCreated
-            + PlaceCamp(
-                camps[i],
-                i,
-                placedBuildingPositions
-            )
+        if not (GG.ExpeditionGarrisonCampClaims and GG.ExpeditionGarrisonCampClaims[i]) then
+            totalCreated =
+                totalCreated
+                + PlaceCamp(
+                    camps[i],
+                    i,
+                    placedBuildingPositions
+                )
+        end
     end
 
     Debug(

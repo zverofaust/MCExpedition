@@ -81,6 +81,40 @@ beaconID = nil
 callerID = nil
 cargo = {}
 numCargo = 0
+extractionFlight = false
+
+function SetFlightContext(callerUnitID, callerBeaconID, extraction)
+	callerID = callerUnitID
+	beaconID = callerBeaconID
+	extractionFlight = extraction == true
+end
+
+function ExtractionLanded()
+	if extractionFlight and GG.ExpeditionDropshipLanded then
+		GG.ExpeditionDropshipLanded(unitID, teamID)
+	end
+end
+
+function ExtractionLoadCargo(cargoID)
+	if extractionFlight and cargoID and Spring.ValidUnitID(cargoID) and not Spring.GetUnitIsDead(cargoID) then
+		numCargo = numCargo + 1
+		cargo[numCargo] = cargoID
+		Spring.UnitScript.AttachUnit(-1, cargoID)
+		Spring.SetUnitCOBValue(cargoID, COB.ACTIVATION, 0)
+	end
+end
+
+function ExtractionDeparted()
+	if extractionFlight and GG.ExpeditionDropshipDeparted then
+		GG.ExpeditionDropshipDeparted(unitID, teamID)
+	end
+end
+
+function ExtractionTakeOff()
+	if extractionFlight and landed then
+		StartThread(TakeOff)
+	end
+end
 
 function LoadCargo(cargoID, callerUnitID, callerBeaconID)
 	if cargoID and Spring.ValidUnitID(cargoID) and not Spring.GetUnitIsDead(cargoID) then
