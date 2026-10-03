@@ -234,14 +234,14 @@ for name, ud in pairs(UnitDefs) do
 	end
 	if cp then
 		if not ud.objectname then
+			local modelName = name
+			if name:sub(3, 3) == "_" then
+				modelName = name:sub(4)
+			end
 			if cp.dropship then
-				ud.objectname = "dropship/" .. name .. ".s3o"
+				ud.objectname = "dropship/" .. modelName .. ".s3o"
 				cp.normaltex = cp.normaltex or "unittextures/normals/" .. ud.name .. "_Normals.dds"
 			elseif cp.baseclass then
-				local modelName = name
-				if cp.baseclass == "mech" and name:sub(3, 3) == "_" then
-					modelName = name:sub(4)
-				end
 				ud.objectname = cp.baseclass .. "/" .. (cp.baseclass == "mech" and (ud.name:gsub(" ", "") .. "/") or "") .. modelName .. ".s3o"
 			end
 		end
