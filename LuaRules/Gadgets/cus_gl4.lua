@@ -870,6 +870,9 @@ local function UnitUsesTexmod(unitID, unitDefID)
 	if not unitDef or texmodConfig.UnitDefExplicitlyDisabled(unitDef) then
 		return false
 	end
+	if unitDef.customParams and unitDef.customParams.dropship then
+		return true
+	end
 	if texmodConfig.UnitDefExplicitEligibility(unitDef) then
 		return true
 	end
@@ -905,7 +908,7 @@ local function GetTexmodFactionFolder(texmod)
 	return nil
 end
 
-local function BuildTexmodTexturePath(unitDef, texmod)
+local function BuildTexmodTexturePath(unitDef, texmod, factionFolder)
 	local model = unitDef and unitDef.model
 	local textures = model and model.textures
 	local tex1 = textures and textures.tex1
@@ -913,7 +916,7 @@ local function BuildTexmodTexturePath(unitDef, texmod)
 		return nil, "unit has no S3O texture1 name"
 	end
 
-	local factionFolder = GetTexmodFactionFolder(texmod)
+	factionFolder = factionFolder or GetTexmodFactionFolder(texmod)
 	if not factionFolder then
 		return nil, "texmod is not assigned to a faction in Gamedata/texmods.lua"
 	end
@@ -988,9 +991,18 @@ local function GetUnitTexmodTextureKey(unitID, unitDefID)
 		return defaultKey
 	end
 
-	local texmod = GetTeamTexmod(Spring.GetUnitTeam(unitID))
-	if texmod == texmodConfig.DEFAULT_TEXMOD then
-		return defaultKey
+	local unitDef = UnitDefs[unitDefID]
+	local dropship = unitDef and unitDef.customParams and unitDef.customParams.dropship
+	local factionFolder
+	local texmod
+	if dropship then
+		factionFolder = unitDef.name and unitDef.name:sub(1, 2):upper()
+		texmod = factionFolder
+	else
+		texmod = GetTeamTexmod(Spring.GetUnitTeam(unitID))
+		if texmod == texmodConfig.DEFAULT_TEXMOD then
+			return defaultKey
+		end
 	end
 
 	local cacheKey = tostring(unitDefID) .. "|" .. texmod
@@ -1006,8 +1018,7 @@ local function GetUnitTexmodTextureKey(unitID, unitDefID)
 		return cached
 	end
 
-	local unitDef = UnitDefs[unitDefID]
-	local candidate, reason = BuildTexmodTexturePath(unitDef, texmod)
+	local candidate, reason = BuildTexmodTexturePath(unitDef, texmod, factionFolder)
 	local resolved = ResolveTexturePath(candidate)
 	if not resolved then
 		local missingReason = reason or "DDS file not found"
