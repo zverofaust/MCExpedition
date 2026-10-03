@@ -238,7 +238,11 @@ for name, ud in pairs(UnitDefs) do
 				ud.objectname = "dropship/" .. name .. ".s3o"
 				cp.normaltex = cp.normaltex or "unittextures/normals/" .. ud.name .. "_Normals.dds"
 			elseif cp.baseclass then
-				ud.objectname = cp.baseclass .. "/" .. (cp.baseclass == "mech" and (ud.name:gsub(" ", "") .. "/") or "") .. name .. ".s3o"
+				local modelName = name
+				if cp.baseclass == "mech" and ud.name == "Urbanmech" and name:sub(1, 3):match("^[a-z][a-z]_") then
+					modelName = name:sub(4)
+				end
+				ud.objectname = cp.baseclass .. "/" .. (cp.baseclass == "mech" and (ud.name:gsub(" ", "") .. "/") or "") .. modelName .. ".s3o"
 			end
 		end
 		if cp.ignoreatbeacon then
