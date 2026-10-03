@@ -239,7 +239,7 @@ for name, ud in pairs(UnitDefs) do
 				cp.normaltex = cp.normaltex or "unittextures/normals/" .. ud.name .. "_Normals.dds"
 			elseif cp.baseclass then
 				local modelName = name
-				if cp.baseclass == "mech" and ud.name == "Urbanmech" and name:sub(1, 3):match("^[a-z][a-z]_") then
+				if cp.baseclass == "mech" and name:sub(3, 3) == "_" then
 					modelName = name:sub(4)
 				end
 				ud.objectname = cp.baseclass .. "/" .. (cp.baseclass == "mech" and (ud.name:gsub(" ", "") .. "/") or "") .. modelName .. ".s3o"
