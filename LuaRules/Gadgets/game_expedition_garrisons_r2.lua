@@ -44,8 +44,6 @@ local PLAYER_START_EXCLUSION = 700
 local CAMP_CONFIG_PATH = "LuaRules/Configs/camp_configs.lua"
 local PROFILE_PATH = "maps/flagConfig/" .. Game.mapName .. "_profile.lua"
 local TWO_PI = math.pi * 2
-local GARRISON_PING_INTERVAL = 90
-local GARRISON_PING_COUNT = 4
 
 local templates = VFS.Include(CAMP_CONFIG_PATH, nil, VFS.GAME) or {}
 local templateNames = {}
@@ -56,8 +54,6 @@ local outpostPool = {}
 local selectedSites = {}
 local selected = false
 local spawned = false
-local firstPingFrame
-local pingsSent = 0
 local enemyTeamID
 local garrisonVehicles = {}
 local enemySide
@@ -415,13 +411,13 @@ function gadget:GameFrame(frame)
 		for i = 1, #selectedSites do
 			SpawnGarrison(selectedSites[i], i)
 		end
-		firstPingFrame = frame + 2
-	elseif spawned and firstPingFrame and pingsSent < GARRISON_PING_COUNT and frame >= firstPingFrame + pingsSent * GARRISON_PING_INTERVAL then
-		pingsSent = pingsSent + 1
+
+		Spring.SetGameRulesParam("expedition_garrison_count", #selectedSites)
 		for i = 1, #selectedSites do
-			local site = selectedSites[i]
-			Spring.SpawnCEG("expedition_garrison_ping", site.x, Spring.GetGroundHeight(site.x, site.z) + 4, site.z, 0, 1, 0)
+			Spring.SetGameRulesParam("expedition_garrison_" .. i .. "_x", selectedSites[i].x)
+			Spring.SetGameRulesParam("expedition_garrison_" .. i .. "_z", selectedSites[i].z)
 		end
+		Spring.SetGameRulesParam("expedition_garrison_reveal_frame", frame + 2)
 	end
 end
 

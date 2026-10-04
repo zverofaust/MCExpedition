@@ -61,16 +61,16 @@ local function BeginExtraction(dropZoneID, teamID)
 		Spring.SendMessageToTeam(teamID, "Extraction unavailable: dropship system is not ready.")
 		return false
 	end
-	local side = GG.teamSide and GG.teamSide[teamID]
-	local dropshipDef = side and UnitDefNames[side .. "_dropship_leopard"]
-	if not dropshipDef then
-		Spring.SendMessageToTeam(teamID, "Extraction unavailable: no dropship definition for this team.")
+	local dropshipLevel = GG.teamDropZoneLevels and GG.teamDropZoneLevels[teamID]
+	local dropshipDefID = dropshipLevel and dropshipLevel.def
+	if not dropshipDefID or not UnitDefs[dropshipDefID] then
+		Spring.SendMessageToTeam(teamID, "Extraction unavailable: no assigned dropship for this team.")
 		return false
 	end
 	SetState(teamID, "EXTRACTION_INBOUND")
 	Spring.SetTeamRulesParam(teamID, "EXPEDITION_EXTRACTION_END_FRAME", -1, {public = true})
 	Spring.SendMessageToTeam(teamID, "Extraction requested. Dropship inbound.")
-	local dropshipID = GG.DropshipExtraction(beaconID, dropZoneID, teamID, dropshipDef.id)
+	local dropshipID = GG.DropshipExtraction(beaconID, dropZoneID, teamID, dropshipDefID)
 	if not dropshipID then
 		SetState(teamID, "ACTIVE")
 		Spring.SendMessageToTeam(teamID, "Extraction request failed.")
@@ -115,9 +115,7 @@ local function FinishExtraction(teamID, dropshipID)
 			leftBehind[#leftBehind + 1] = unitID
 		end
 	end
-	local earnedCBills = math.floor((Spring.GetTeamRulesParam(teamID, "EXPEDITION_CBILLS_EARNED") or 0) + 0.5)
 	Spring.Echo("[MCE Expedition] EXPEDITION COMPLETE - team", teamID)
-	Spring.Echo("[MCE Expedition] C-Bills earned:", earnedCBills)
 	Spring.Echo("[MCE Expedition] Extracted units:", #extracted, "Left behind:", #leftBehind, "Radius:", radius)
 	for _, unitID in ipairs(extracted) do
 		Spring.Echo("[MCE Expedition] Extracted:", UnitDefs[Spring.GetUnitDefID(unitID)].name, unitID)
@@ -125,17 +123,7 @@ local function FinishExtraction(teamID, dropshipID)
 	for _, unitID in ipairs(leftBehind) do
 		Spring.Echo("[MCE Expedition] Left Behind:", UnitDefs[Spring.GetUnitDefID(unitID)].name, unitID)
 	end
-	Spring.SendMessageToTeam(teamID, "EXPEDITION COMPLETE")
-	Spring.SendMessageToTeam(teamID, "C-Bills Earned: " .. earnedCBills)
-	Spring.SendMessageToTeam(teamID, "Extracted Mechs: " .. #extracted .. "  Left Behind: " .. #leftBehind)
-	for _, unitID in ipairs(extracted) do
-		local unitDef = UnitDefs[Spring.GetUnitDefID(unitID)]
-		Spring.SendMessageToTeam(teamID, "  Extracted: " .. (unitDef.humanName or unitDef.name))
-	end
-	for _, unitID in ipairs(leftBehind) do
-		local unitDef = UnitDefs[Spring.GetUnitDefID(unitID)]
-		Spring.SendMessageToTeam(teamID, "  Left Behind: " .. (unitDef.humanName or unitDef.name))
-	end
+	Spring.SendMessageToTeam(teamID, "EXPEDITION COMPLETE - Extracted: " .. #extracted .. "  Left Behind: " .. #leftBehind)
 	SetState(teamID, "EXTRACTION_DEPARTING")
 	Spring.SetTeamRulesParam(teamID, "EXPEDITION_EXTRACTED_COUNT", #extracted, {public = true})
 	Spring.SetTeamRulesParam(teamID, "EXPEDITION_LEFT_BEHIND_COUNT", #leftBehind, {public = true})

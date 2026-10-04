@@ -2,7 +2,7 @@ function gadget:GetInfo()
 	return {
 		name		= "Outpost - DropZone",
 		desc		= "Controls DropZone mech purchasing abilities",
-		author		= "FLOZi (C. Lawrence)",
+		author		= "FLOZi (C. Lawrence), zvero + ChatGPT",
 		date		= "31/08/13",
 		license 	= "GNU GPL v2",
 		layer		= 3, -- must come after game_spawn
@@ -139,7 +139,25 @@ local dropZoneCoolDowns = {} -- dropZoneCoolDowns[teamID] = enableFrame
 GG.dropZoneCoolDowns = dropZoneCoolDowns
 -- Upgrading dropzone
 local teamDropZoneLevels = {} -- teamDropZoneLevels[teamID] = {tier = 1 or 2 or 3, def = unitDefID}
+GG.teamDropZoneLevels = teamDropZoneLevels
 local dropZoneLevels = {"leopard", "union", "overlord"}
+
+local function DebugDropshipUnitDefs()
+	Spring.Echo("[DropZone diagnostic] ---- expected dropship UnitDefs ----")
+	for _, side in ipairs({"cc", "dc", "fs", "fw", "la", "sj", "wf", "jf", "mc"}) do
+		for _, dropship in ipairs({"leopard", "union", "overlord", "markvii"}) do
+			local name = side .. "_dropship_" .. dropship
+			local def = UnitDefNames[name]
+			Spring.Echo("[DropZone diagnostic]", name, def and ("PRESENT id=" .. def.id .. " object=" .. tostring(UnitDefs[def.id] and UnitDefs[def.id].model and UnitDefs[def.id].model.path or UnitDefs[def.id] and UnitDefs[def.id].modelname or "?")) or "MISSING")
+		end
+	end
+	Spring.Echo("[DropZone diagnostic] ---- team sides ----")
+	for _, teamID in pairs(Spring.GetTeamList()) do
+		local engineSide = select(5, Spring.GetTeamInfo(teamID))
+		Spring.Echo("[DropZone diagnostic] team", teamID, "GG.teamSide=", GG.teamSide and GG.teamSide[teamID] or "nil", "engineSide=", tostring(engineSide))
+	end
+	Spring.Echo("[DropZone diagnostic] -------------------------------")
+end
 
 local function GetWeight(mass) -- still used by spamBot for 'DireBolical' difficulty
 	local light = mass < 40 * 100
@@ -642,6 +660,7 @@ end
 
 
 function gadget:GamePreload()
+	DebugDropshipUnitDefs()
 	for unitDefID, unitDef in pairs(UnitDefs) do
 		local name = unitDef.name
 		local cp = unitDef.customParams
