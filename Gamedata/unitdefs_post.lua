@@ -1,3 +1,4 @@
+-- Modified by zvero + ChatGPT
 VFS.Include("LuaRules/Includes/utilities.lua", nil, VFS.ZIP)
 
 local PROFILE_PATH 
@@ -234,11 +235,17 @@ for name, ud in pairs(UnitDefs) do
 	end
 	if cp then
 		if not ud.objectname then
+			local modelName = name
+			local factionPrefix = name:sub(1, 2)
+			local neutralModelClass = cp.dropship or cp.baseclass == "mech" or cp.baseclass == "vehicle" or cp.baseclass == "aero"
+			if neutralModelClass and name:sub(3, 3) == "_" and (VALID_SIDES[factionPrefix] or factionPrefix == "jf" or factionPrefix == "mc") then
+				modelName = name:sub(4)
+			end
 			if cp.dropship then
-				ud.objectname = "dropship/" .. name .. ".s3o"
+				ud.objectname = "dropship/" .. modelName .. ".s3o"
 				cp.normaltex = cp.normaltex or "unittextures/normals/" .. ud.name .. "_Normals.dds"
 			elseif cp.baseclass then
-				ud.objectname = cp.baseclass .. "/" .. (cp.baseclass == "mech" and (ud.name:gsub(" ", "") .. "/") or "") .. name .. ".s3o"
+				ud.objectname = cp.baseclass .. "/" .. (cp.baseclass == "mech" and (ud.name:gsub(" ", "") .. "/") or "") .. modelName .. ".s3o"
 			end
 		end
 		if cp.ignoreatbeacon then
