@@ -70,13 +70,6 @@ local function ApplyMode(mode)
 	return true
 end
 
-function widget:Initialize()
-	local mode = Spring.GetGameRulesParam("mcl_mode")
-	if mode then
-		ApplyMode(mode)
-	end
-end
-
 function widget:Update()
 	if routedMode then
 		widgetHandler:RemoveWidget(self)
