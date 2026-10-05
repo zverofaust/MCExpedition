@@ -6,7 +6,7 @@ function widget:GetInfo()
     date      = "28 August 2009",
     license   = "GNU GPL v2",
     layer     = 5,
-    enabled   = true  --  loaded by default?
+    enabled   = false  -- selected by the mode UI router
   }
 end
 
