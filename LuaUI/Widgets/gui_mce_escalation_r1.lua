@@ -1,6 +1,6 @@
 function widget:GetInfo()
 	return {
-		name      = "MCE Escalation",
+		name      = "MCM Expedition Escalation",
 		desc      = "Displays the Expedition escalation level",
 		author    = "zvero + ChatGPT",
 		date      = "03/10/26",
@@ -18,7 +18,7 @@ local GetGameRulesParam = Spring.GetGameRulesParam
 local vsx, vsy = Spring.GetViewGeometry()
 
 function widget:Initialize()
-	if GetGameRulesParam("gamemode") ~= "expedition" then
+	if GetGameRulesParam("mcl_mode") ~= "mercs" or GetGameRulesParam("contract_type") ~= "expedition" then
 		widgetHandler:RemoveWidget(self)
 	end
 end
