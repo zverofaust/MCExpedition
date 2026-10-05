@@ -6,7 +6,7 @@ function widget:GetInfo()
 		date      = "Oct, 2026",
 		license   = "PD",
 		layer     = 5,
-		enabled   = true
+		enabled   = false  -- selected by the mode UI router
 	}
 end
 
@@ -286,10 +286,6 @@ local function UpdateSet(setNumber, setUnits)
 end
 
 function widget:Initialize()
-	if Spring.GetGameRulesParam("mcl_mode") ~= "mercs" then
-		widgetHandler:RemoveWidget()
-		return
-	end
 
 	MY_TEAM = Spring.GetMyTeamID()
 	for unitDefID, ud in pairs(UnitDefs) do
