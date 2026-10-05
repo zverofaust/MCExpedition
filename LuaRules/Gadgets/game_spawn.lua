@@ -15,7 +15,7 @@ function gadget:GetInfo()
 	return {
 		name      = "Game - Spawn",
 		desc      = "spawns start unit and sets storage levels",
-		author    = "Tobi Vollebregt, zvero + ChatGPT",
+		author    = "Tobi Vollebregt",
 		date      = "January, 2010",
 		license   = "GNU GPL, v2 or later",
 		layer     = 1, -- must be before flagManager, before unit_purchasing
@@ -52,8 +52,6 @@ if not modOptions.startcbills then -- load via file
 	-- set the gamerules param to notify other gadgets it was a direct launch
 	Spring.SetGameRulesParam("runningWithoutScript", 1)
 end
-local expeditionMode = modOptions.gamemode == "expedition"
-Spring.SetGameRulesParam("gamemode", expeditionMode and "expedition" or "classic")
 -- Need the raw sidedata for short names
 local sideData = VFS.Include("gamedata/sidedata.lua", nil, VFS.ZIP)
 local SideNames = {}
@@ -100,13 +98,13 @@ end
 local function SpawnStartUnit(teamID)
 	if not activeTeams[teamID] then return false end
 	local startUnit = GetStartUnit(teamID)--sideStartUnits[teamID]
-	if (startUnit and startUnit ~= "") and (not expeditionMode or #Spring.GetPlayerList(teamID) > 0) then
+	if (startUnit and startUnit ~= "") then
 		-- spawn the specified start unit
 		local startPos = teamStarts[teamID]
 		local x,y,z
 		x = startPos.x
+		y = startPos.y
 		z = startPos.z
-		y = startPos.y or Spring.GetGroundHeight(x, z)
 		-- facing toward map center
 		local facing=math.abs(Game.mapSizeX/2 - x) > math.abs(Game.mapSizeZ/2 - z)
 			and ((x>Game.mapSizeX/2) and "west" or "east")
@@ -144,14 +142,6 @@ end
 
 function gadget:Initialize()
 	GG.teamSide = {}
-	if expeditionMode then
-		for _, teamID in pairs(Spring.GetTeamList()) do
-			if #Spring.GetPlayerList(teamID) > 0 then
-				GG.teamSide[teamID] = ValidSides.mc
-				Spring.SetTeamRulesParam(teamID, "side", "mc", {allied=true, public=false})
-			end
-		end
-	end
 end
 
 local lockToProfileStarts = modOptions.locktoprofile == '1'
@@ -288,10 +278,6 @@ GG.DeploySpawnBeacons = DeploySpawnBeacons
 
 -- keep track of choosing faction ingame
 function gadget:RecvLuaMsg(msg, playerID)
-	if expeditionMode then
-		return false
-	end
-
 	-- these messages are only useful during pre-game placement
 	if Spring.GetGameFrame() > 0 then
 		return false

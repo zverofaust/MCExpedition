@@ -234,15 +234,11 @@ for name, ud in pairs(UnitDefs) do
 	end
 	if cp then
 		if not ud.objectname then
-			local modelName = name
-			if name:sub(3, 3) == "_" then
-				modelName = name:sub(4)
-			end
 			if cp.dropship then
-				ud.objectname = "dropship/" .. modelName .. ".s3o"
+				ud.objectname = "dropship/" .. name .. ".s3o"
 				cp.normaltex = cp.normaltex or "unittextures/normals/" .. ud.name .. "_Normals.dds"
 			elseif cp.baseclass then
-				ud.objectname = cp.baseclass .. "/" .. (cp.baseclass == "mech" and (ud.name:gsub(" ", "") .. "/") or "") .. modelName .. ".s3o"
+				ud.objectname = cp.baseclass .. "/" .. (cp.baseclass == "mech" and (ud.name:gsub(" ", "") .. "/") or "") .. name .. ".s3o"
 			end
 		end
 		if cp.ignoreatbeacon then
@@ -531,41 +527,6 @@ for name, ud in pairs(UnitDefs) do
 		ud.canrestore = false
 		ud.canassist = false
 		ud.canreclaim = false
-	end
-end
-
--- Generate Mercenary Outfit Mech definitions from the existing faction variants.
--- Each unique XX_Chassis_Variant produces one MC_Chassis_Variant. The source
--- definition is selected deterministically, while retaining its already-resolved
--- model, corpse, weapons and other processed data.
-if VALID_SIDES["mc"] then
-	local mercMechSources = {}
-
-	for name, ud in pairs(UnitDefs) do
-		local cp = ud.customparams
-		local side = name:sub(1, 2)
-
-		if cp and cp.baseclass == "mech" and side ~= "mc" and VALID_SIDES[side] then
-			local identity = name:sub(4)
-			if not mercMechSources[identity] or name < mercMechSources[identity] then
-				mercMechSources[identity] = name
-			end
-		end
-	end
-
-	for identity, sourceName in pairs(mercMechSources) do
-		local mercName = "mc_" .. identity
-
-		if not UnitDefs[mercName] then
-			local mercDef = {}
-			table.copy(UnitDefs[sourceName], mercDef)
-
-			mercDef.unitname = mercName
-			mercDef.buildpic = mercName .. ".png"
-
-			UnitDefs[mercName] = mercDef
-			table.insert(DROPZONE_BUILDOPTIONS["mc"], mercName)
-		end
 	end
 end
 

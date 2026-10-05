@@ -229,7 +229,6 @@ function TakeOff(bugout)
 		end
 		GG.PlaySoundForTeam(teamID, "bb_reinforcements_refund", 1)
 	end
-	if extractionFlight then ExtractionDeparted() end
 	Spring.DestroyUnit(unitID, false, true)
 end
 
@@ -360,11 +359,7 @@ function Drop()
 		Spring.MoveCtrl.SetRelativeVelocity(unitID, 0, 0, 0)
 		PlaySound("dropship_rumble")
 		TouchDown() -- not called by engine as not falling under gravity
-		if extractionFlight then
-			ExtractionLanded()
-		else
-			UnloadCargo()
-		end
+		UnloadCargo()
 	else -- bugging out
 		TakeOff(true) -- skip checks and get right to booster
 	end

@@ -53,12 +53,5 @@ local sidedata = {
 		techBase = "CL",
 		texmods = {"SJAlpha"},
 	},
-	{
-		name = "Mercenary Outfit",
-		shortName = "MC",
-		startUnit = "beacon",
-		techBase = "IS",
-		texmods = {"Mercenary"},
-	},
 }
 return sidedata

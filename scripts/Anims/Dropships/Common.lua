@@ -99,11 +99,7 @@ function fx()
 			Move(gears[i].joint, y_axis, RETURN, RETURN)
 		end
 		WaitForMove(gears[info.numGears].joint, y_axis)
-		if extractionFlight then
-			ExtractionLanded()
-		else
-			StartThread(UnloadCargo)
-		end
+		StartThread(UnloadCargo)
 	end
 	if stage == 5 then -- blast off
 		PlaySound("dropship_liftoff")
@@ -188,7 +184,6 @@ function TakeOff(bugout)
 		end
 		GG.PlaySoundForTeam(teamID, "bb_reinforcements_refund", 1)
 	end
-	if extractionFlight then ExtractionDeparted() end
 	Spring.DestroyUnit(unitID, false, true)
 end
 

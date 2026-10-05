@@ -1,8 +1,8 @@
 function gadget:GetInfo()
 	return {
 		name		= "Game - Income",
-		desc		= "Damage Income",
-		author		= "FLOZi (C. Lawrence), zvero + ChatGPT",
+		desc		= "Damage, Insurance and Sell Income",
+		author		= "FLOZi (C. Lawrence)",
 		date		= "26/07/20",
 		license 	= "GNU GPL v2",
 		layer		= 3,
@@ -16,13 +16,21 @@ if gadgetHandler:IsSyncedCode() then
 local modOptions = Spring.GetModOptions()
 
 -- localisations
+local SetUnitRulesParam		= Spring.SetUnitRulesParam
 --SyncedRead
 local AreTeamsAllied		= Spring.AreTeamsAllied
+--SyncedCtrl
+local DestroyUnit			= Spring.DestroyUnit
+local InsertUnitCmdDesc		= Spring.InsertUnitCmdDesc
+
 -- Constants
+local CBILLS_PER_SEC = (modOptions and tonumber(modOptions.income)) or 10
+local BEACON_ID = UnitDefNames["beacon"].id
+
 local DAMAGE_REWARD_MULT = (modOptions and tonumber(modOptions.income_damage)) or 0.1
-local EXPEDITION_DAMAGE_REWARD_MULT = 0.25
 Spring.SetGameRulesParam("damage_reward_mult", DAMAGE_REWARD_MULT)
-Spring.SetGameRulesParam("expedition_damage_reward_mult", EXPEDITION_DAMAGE_REWARD_MULT)
+local INSURANCE_MULT = (modOptions and tonumber(modOptions.insurance)) or 0.1
+Spring.SetGameRulesParam("insurance_mult", INSURANCE_MULT)
 
 local MELTDOWN = WeaponDefNames["meltdown"].id
 
@@ -31,16 +39,16 @@ function gadget:UnitDamaged(unitID, unitDefID, teamID, damage, paralyzer, weapon
 		if GG.mechCache[attackerDefID] then -- only mechs generate income
 			-- don't allow income from nukes
 			if not (weaponID and weaponID == MELTDOWN) then		
-				local expeditionMode = Spring.GetGameRulesParam("gamemode") == "expedition"
-				local reward = damage * (expeditionMode and EXPEDITION_DAMAGE_REWARD_MULT or DAMAGE_REWARD_MULT)
-				if expeditionMode then
-					local earned = (Spring.GetTeamRulesParam(attackerTeam, "EXPEDITION_CBILLS_EARNED") or 0) + reward
-					Spring.SetTeamRulesParam(attackerTeam, "EXPEDITION_CBILLS_EARNED", earned, {public = true})
-				else
-					GG.ChangeTeamResource(attackerTeam, "cbills", reward)
-				end
+				GG.ChangeTeamResource(attackerTeam, "cbills", damage * DAMAGE_REWARD_MULT)
 			end
 		end
+	end
+end
+
+function gadget:UnitDestroyed(unitID, unitDefID, teamID, attackerID, attackerDefID, attackerTeam)
+	-- Insurance income
+	if attackerID and not AreTeamsAllied(teamID, attackerTeam) and GG.mechCache[unitDefID] then
+		GG.ChangeTeamResource(teamID, "cbills", UnitDefs[unitDefID].metalCost * INSURANCE_MULT)
 	end
 end
 
@@ -58,11 +66,20 @@ function gadget:AllowResourceTransfer(oldTeamID, newTeamID, res, amount)
 	return true
 end
 
-function gadget:Initialize()
-	if Spring.GetGameRulesParam("gamemode") == "expedition" then
-		for _, teamID in ipairs(Spring.GetTeamList()) do
-			Spring.SetTeamRulesParam(teamID, "EXPEDITION_CBILLS_EARNED", 0, {public = true})
+function gadget:GameFrame(n)
+	if n > 0 and n % 30 == 0 then -- once a second
+		-- Beacon Income
+		for _, teamID in pairs(Spring.GetTeamList()) do
+			GG.ChangeTeamResource(teamID, "cbills", CBILLS_PER_SEC * Spring.GetTeamUnitDefCount(teamID, BEACON_ID))
 		end
+	end
+end
+
+function gadget:Initialize()
+	for _,unitID in ipairs(Spring.GetAllUnits()) do
+		local teamID = Spring.GetUnitTeam(unitID)
+		local unitDefID = Spring.GetUnitDefID(unitID)
+		gadget:UnitCreated(unitID, unitDefID, teamID)
 	end
 end
 

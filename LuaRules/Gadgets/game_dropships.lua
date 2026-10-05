@@ -2,7 +2,7 @@ function gadget:GetInfo()
 	return {
 		name		= "Game - Dropships",
 		desc		= "Controls dropship spawning",
-		author		= "FLOZi (C. Lawrence), zvero + ChatGPT",
+		author		= "FLOZi (C. Lawrence)",
 		date		= "27/07/20",
 		license 	= "GNU GPL v2",
 		layer		= 0,
@@ -93,24 +93,6 @@ function SpawnDropship(beaconID, unitID, teamID, dropshipType, cargo, cost, offs
 		beaconDropshipQueue[beaconID] = {}
 	end
 end
-
-function DropshipExtraction(beaconID, targetID, teamID, dropshipDefID)
-	if not (Spring.ValidUnitID(beaconID) and Spring.ValidUnitID(targetID))
-	or Spring.GetUnitIsDead(beaconID) or Spring.GetUnitIsDead(targetID)
-	or Spring.GetUnitTeam(beaconID) ~= teamID or Spring.GetUnitTeam(targetID) ~= teamID then
-		return
-	end
-	local tx, ty, tz = GetUnitPosition(targetID)
-	local dropshipID = CreateUnit(dropshipDefID, tx, ty, tz, "s", teamID)
-	if not dropshipID then return end
-	dropshipCallers[dropshipID] = targetID
-	local env = Spring.UnitScript.GetScriptEnv(dropshipID)
-	if env and env.SetFlightContext then
-		Spring.UnitScript.CallAsUnit(dropshipID, env.SetFlightContext, targetID, beaconID, true)
-	end
-	return dropshipID
-end
-GG.DropshipExtraction = DropshipExtraction
 
 function BeaconNextQueueItem(beaconID, teamID)
 	if beaconID and #beaconDropshipQueue[beaconID] > 0 then
