@@ -13,7 +13,7 @@
 
 function widget:GetInfo()
 	return {
-		name      = "MCE - Garrison Reveal",
+		name      = "MCM - Expedition Garrison Reveal",
 		desc      = "Shows opening map-scale enemy garrison location pulses",
 		author    = "zvero + ChatGPT",
 		date      = "01/10/26",
@@ -79,7 +79,7 @@ local function DrawProjectedRing(site, radius, alpha)
 end
 
 function widget:Initialize()
-	if Spring.GetGameRulesParam("gamemode") ~= "expedition" then
+	if Spring.GetGameRulesParam("mcl_mode") ~= "mercs" or Spring.GetGameRulesParam("contract_type") ~= "expedition" then
 		widgetHandler:RemoveWidget(self)
 	end
 end
