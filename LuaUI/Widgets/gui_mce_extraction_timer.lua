@@ -1,6 +1,6 @@
 function widget:GetInfo()
 	return {
-		name      = "MCE Extraction Timer",
+		name      = "MCM Expedition Extraction Timer",
 		desc      = "Displays the active Expedition extraction countdown",
 		author    = "zvero + ChatGPT",
 		date      = "01/10/26",
