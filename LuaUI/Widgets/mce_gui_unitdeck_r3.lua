@@ -1,7 +1,7 @@
 function widget:GetInfo()
 	return {
-		name      = "MCE Unit Deck",
-		desc      = "Displays Expedition lance and support units.",
+		name      = "MCM Unit Deck",
+		desc      = "Displays the Merc outfit lance and support units.",
 		author    = "Smoth + zvero + ChatGPT",
 		date      = "Oct, 2026",
 		license   = "PD",
@@ -93,7 +93,7 @@ end
 local function InitializeSetView()
 	for setNumber = 1, 2 do
 		deckSets[setNumber] = Chili.ScrollPanel:New{
-			name = "expedition unit list #" .. setNumber;
+			name = "mercs unit list #" .. setNumber;
 			padding = {0,0,0,0};
 			width = "100%";
 			height = "100%";
@@ -106,7 +106,7 @@ local function InitializeSetView()
 		deckButtons[setNumber] = Chili.Button:New{
 			tiles = {10,10,10,10};
 			parent = deckWindow;
-			name = "expedition deck #" .. setNumber;
+			name = "mercs deck #" .. setNumber;
 			caption = setNames[setNumber];
 			fontsize = fontSizes.large;
 			fontShadow = false;
@@ -229,7 +229,7 @@ local function SetLance(unitID, lanceNum)
 	lanceUnits[#lanceUnits + 1] = unitID
 end
 
--- Expedition has one four-Mech lance. Keep the Classic callbacks registered so
+-- Mercs currently presents one four-Mech lance. Keep the Classic callbacks registered so
 -- outpost_c3Array.lua can retain its existing unsynced interface unchanged.
 local function SetMaxLance(newMaxLance)
 	return
@@ -286,7 +286,7 @@ local function UpdateSet(setNumber, setUnits)
 end
 
 function widget:Initialize()
-	if Spring.GetGameRulesParam("gamemode") ~= "expedition" then
+	if Spring.GetGameRulesParam("mcl_mode") ~= "mercs" then
 		widgetHandler:RemoveWidget()
 		return
 	end
