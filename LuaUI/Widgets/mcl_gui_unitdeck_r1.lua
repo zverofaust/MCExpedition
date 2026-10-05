@@ -6,7 +6,7 @@ function widget:GetInfo()
 		date      = "Jan, 2014",
 		license   = "PD",
 		layer     = 5,
-		enabled   = true  -- loaded by default?
+		enabled   = false  -- selected by the mode UI router
 	}
 end
 
@@ -309,10 +309,6 @@ local function SetSupportLance(yesOrNo)
 end
 
 function widget:Initialize()
-	if Spring.GetGameRulesParam("gamemode") == "expedition" then
-		widgetHandler:RemoveWidget()
-		return
-	end
 
 	MY_TEAM = Spring.GetMyTeamID()
 	for unitDefID, ud in pairs(UnitDefs) do
