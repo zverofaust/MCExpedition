@@ -237,7 +237,7 @@ for name, ud in pairs(UnitDefs) do
 		if not ud.objectname then
 			local modelName = name
 			local factionPrefix = name:sub(1, 2)
-			local neutralModelClass = cp.dropship or cp.baseclass == "mech" or cp.baseclass == "vehicle" or cp.baseclass == "aero"
+			local neutralModelClass = cp.dropship or cp.baseclass == "mech" or cp.baseclass == "vehicle" or cp.baseclass == "vtol" or cp.baseclass == "aero"
 			if neutralModelClass and name:sub(3, 3) == "_" and (VALID_SIDES[factionPrefix] or factionPrefix == "jf" or factionPrefix == "mc") then
 				modelName = name:sub(4)
 			end
