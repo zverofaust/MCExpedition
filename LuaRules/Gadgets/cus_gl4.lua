@@ -910,12 +910,12 @@ local function BuildTexmodTexturePath(unitDef, texmod)
 	local textures = model and model.textures
 	local tex1 = textures and textures.tex1
 	if type(tex1) ~= "string" or tex1 == "" then
-		return nil, "unit has no S3O texture1 name"
+		return nil, nil, "unit has no S3O texture1 name"
 	end
 
 	local factionFolder = GetTexmodFactionFolder(texmod)
 	if not factionFolder then
-		return nil, "texmod is not assigned to a faction in Gamedata/texmods.lua"
+		return nil, nil, "texmod is not assigned to a faction in Gamedata/texmods.lua"
 	end
 
 	local filename = tex1:gsub("\\", "/")
@@ -924,11 +924,15 @@ local function BuildTexmodTexturePath(unitDef, texmod)
 	local lower = filename:lower()
 	local suffix = "_team.dds"
 	if lower:sub(-#suffix) ~= suffix then
-		return nil, "texture1 does not end in _Team.dds"
+		return nil, nil, "texture1 does not end in _Team.dds"
 	end
 
 	local stem = filename:sub(1, #filename - #suffix)
-	return "unittextures/texmods/" .. factionFolder .. "/" .. stem .. "_" .. texmod .. ".dds"
+	local directory = "unittextures/texmods/" .. factionFolder .. "/"
+	local factionFallback = unitDef.customParams and unitDef.customParams.dropship
+		and (directory .. stem .. "_" .. factionFolder .. ".dds")
+		or nil
+	return directory .. stem .. "_" .. texmod .. ".dds", factionFallback
 end
 
 local function ResolveTexturePath(candidate)
@@ -1007,8 +1011,11 @@ local function GetUnitTexmodTextureKey(unitID, unitDefID)
 	end
 
 	local unitDef = UnitDefs[unitDefID]
-	local candidate, reason = BuildTexmodTexturePath(unitDef, texmod)
+	local candidate, factionFallback, reason = BuildTexmodTexturePath(unitDef, texmod)
 	local resolved = ResolveTexturePath(candidate)
+	if not resolved and factionFallback then
+		resolved = ResolveTexturePath(factionFallback)
+	end
 	if not resolved then
 		local missingReason = reason or "DDS file not found"
 		texmodState.missingTextureInfo[cacheKey] = {
