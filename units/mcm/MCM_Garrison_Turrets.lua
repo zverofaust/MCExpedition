@@ -1,29 +1,47 @@
 --------------------------------------------------------------------------------
 -- MechCommander: Mercs - Garrison Turrets
 --
--- Separate Mercs UnitDefs reuse the existing turret assets and combat data but
--- use a pre-emplaced script instead of the player turret orbital insertion.
+-- Mercs garrison emplacements reuse existing turret visual and combat assets,
+-- but deliberately do NOT inherit the PvP Turret base class. In particular,
+-- baseclass="turret" is reserved for MCL's player-built/deployed turret system.
 --
 -- Authors: FLOZi (C. Lawrence) + zvero + ChatGPT
 --------------------------------------------------------------------------------
 
-local GarrisonTurret = Turret:New{
+local GarrisonTurret = Unit:New{
 	name = "Garrison Weapon Emplacement",
+	description = "Fixed military weapon emplacement",
 	script = "MCM_Garrison_Turret.lua",
+	category = "structure notbeacon ground",
+	iconType = "turret",
+	activateWhenBuilt = true,
+	buildCostMetal = 1,
+	maxDamage = 4000,
+	mass = 5000,
+	footprintX = 3,
+	footprintZ = 3,
+	maxSlope = 100,
+	collisionVolumeType = "box",
+	collisionVolumeScales = "25 25 25",
+	canMove = false,
+	maxVelocity = 0,
+	idleAutoHeal = 0,
+	buildingMask = 2,
 
 	customparams = {
-		ignoreatbeacon = true,
-		baseclass = "turret",
-		slotcost = 1,
+		baseclass = "mcm_turret",
 		normaltex = "unittextures/normals/Turrets_Normals.dds",
 		mcm_garrison_turret = true,
+	},
+
+	sounds = {
+		select = "Turret",
 	},
 }
 
 local AC10 = GarrisonTurret:New{
 	description = "Dual AC/10",
 	objectName = "Turret/Turret_AC10.s3o",
-	buildCostMetal = 3500,
 	maxDamage = 1500,
 
 	weapons = {
@@ -44,7 +62,6 @@ local AC10 = GarrisonTurret:New{
 local LPL = GarrisonTurret:New{
 	description = "Quad Large Pulse Laser",
 	objectName = "Turret/Turret_LPL.s3o",
-	buildCostMetal = 3500,
 	maxDamage = 2500,
 
 	weapons = {
@@ -64,7 +81,6 @@ local LPL = GarrisonTurret:New{
 local LRM = GarrisonTurret:New{
 	description = "LRM-20",
 	objectName = "Turret/Turret_LRM.s3o",
-	buildCostMetal = 4200,
 	maxDamage = 2000,
 
 	weapons = {
