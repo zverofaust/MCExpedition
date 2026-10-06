@@ -23,6 +23,11 @@ function gadget:GetInfo()
 	}
 end
 
+local modeOwnership = VFS.Include("LuaRules/Configs/mcl_mode_gadgets.lua")
+if not modeOwnership.IsOwnedByActiveMode("Game - Spawn") then
+	return false
+end
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
