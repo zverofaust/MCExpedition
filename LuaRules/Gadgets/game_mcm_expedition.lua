@@ -146,35 +146,49 @@ local function FilterPlayerArea(candidates, mercTeamID)
 	return filtered, x, z
 end
 
-local function SelectSites(candidates, playerX, playerZ)
-	table.sort(candidates, function(a, b)
-		return DistanceSquared(a.x, a.z, playerX, playerZ) > DistanceSquared(b.x, b.z, playerX, playerZ)
-	end)
+local function ShuffleCandidates(candidates)
+	for i = #candidates, 2, -1 do
+		local j = math.random(i)
+		candidates[i], candidates[j] = candidates[j], candidates[i]
+	end
+end
 
-	local selected = {}
+local function SelectSites(candidates)
 	local spacingSquared = defs.minimumBaseSpacing * defs.minimumBaseSpacing
 	local wanted = math.min(defs.baseCountMax, #candidates)
+	local best = {}
 
-	for i = 1, #candidates do
-		local candidate = candidates[i]
-		local clear = true
+	-- Try several shuffled orders. This keeps authored-site selection varied
+	-- between matches while still respecting the minimum spacing rule.
+	for attempt = 1, 16 do
+		ShuffleCandidates(candidates)
+		local selected = {}
 
-		for j = 1, #selected do
-			if DistanceSquared(candidate.x, candidate.z, selected[j].x, selected[j].z) < spacingSquared then
-				clear = false
-				break
+		for i = 1, #candidates do
+			local candidate = candidates[i]
+			local clear = true
+
+			for j = 1, #selected do
+				if DistanceSquared(candidate.x, candidate.z, selected[j].x, selected[j].z) < spacingSquared then
+					clear = false
+					break
+				end
+			end
+
+			if clear then
+				selected[#selected + 1] = candidate
+				if #selected >= wanted then
+					return selected
+				end
 			end
 		end
 
-		if clear then
-			selected[#selected + 1] = candidate
-			if #selected >= wanted then
-				break
-			end
+		if #selected > #best then
+			best = selected
 		end
 	end
 
-	return selected
+	return best
 end
 
 local function SpawnUnit(unitName, x, z, facing, teamID)
@@ -262,7 +276,7 @@ function gadget:GameFrame(frame)
 
 	local candidates = LoadCandidates()
 	local filtered, playerX, playerZ = FilterPlayerArea(candidates, mercTeamID)
-	local selected = SelectSites(filtered, playerX, playerZ)
+	local selected = SelectSites(filtered)
 	local enemyTeamID = GetEnemyTeam(mercTeamID)
 
 	for i = 1, #selected do
