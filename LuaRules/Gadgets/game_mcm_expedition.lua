@@ -185,7 +185,11 @@ local function SpawnUnit(unitName, x, z, facing, teamID)
 	end
 
 	local y = Spring.GetGroundHeight(x, z)
-	return Spring.CreateUnit(def.id, x, y, z, facing or 0, teamID)
+	local unitID = Spring.CreateUnit(def.id, x, y, z, facing or 0, teamID)
+	if unitID and unitName:find("^mcm_garrison_turret_") then
+		Spring.Echo("[MCM Expedition] Turret UnitDef:", unitName, "scriptName:", UnitDefs[def.id].scriptName)
+	end
+	return unitID
 end
 
 local function SpawnBase(site, baseNumber, teamID)
