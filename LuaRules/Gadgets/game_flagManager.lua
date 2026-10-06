@@ -275,16 +275,7 @@ end
 
 function gadget:GamePreload()
 	if DEBUG then Spring.Echo(PROFILE_PATH) end
-	local temps = {}
-	-- CHECK FOR PROFILES
-	if VFS.FileExists(PROFILE_PATH) then
-		_, temps, _ = VFS.Include(PROFILE_PATH)
-	end
-	temps.ambient = temps.ambient or 20
-	temps.water = temps.water or 10
-	GG.MapTemperatures = temps
-	Spring.SetGameRulesParam("MAP_TEMP_AMBIENT", temps.ambient)
-	Spring.SetGameRulesParam("MAP_TEMP_WATER", temps.water)
+	-- Map temperatures are published by shared api_map_environment.lua.
 	-- cache ignored unitDefIDs
 	for unitDefID, ud in pairs(UnitDefs) do
 		if ud.canFly or string.tobool(ud.customParams.ignoreatbeacon) then
