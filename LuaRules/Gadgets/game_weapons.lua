@@ -303,9 +303,9 @@ end
 function gadget:ProjectileCreated(proID, proOwnerID, weaponID)
 	local wd = WeaponDefs[weaponID]
 	local unitDefID = proOwnerID and GetUnitDefID(proOwnerID)
-	--Spring.Echo("PC", proID, proOwnerID, weaponID, unitDefID, GG.mechCache[unitDefID], GG.turretDefIDs[unitDefID], unitSpecialAmmos[proOwnerID])
+	--Spring.Echo("PC", proID, proOwnerID, weaponID, unitDefID, GG.mechCache[unitDefID], GG.turretCache[unitDefID], unitSpecialAmmos[proOwnerID])
 	-- Mech only Special Ammos
-	if unitDefID and (GG.mechCache[unitDefID] or GG.turretDefIDs[unitDefID]) and unitSpecialAmmos[proOwnerID] then
+	if unitDefID and (GG.mechCache[unitDefID] or GG.turretCache[unitDefID]) and unitSpecialAmmos[proOwnerID] then
 		if wd and wd.name == "arrowiv" then
 			--Spring.Echo("ProjectileCreated found an arrow")
 			local ammoType = unitSpecialAmmos[proOwnerID]["arrowiv"]
