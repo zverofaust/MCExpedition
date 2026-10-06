@@ -113,10 +113,6 @@ end
 
 
 -- Constants
-local DROP_HEIGHT = 10000
-local GRAVITY = 120/Game.gravity
-local X, _, Z = Spring.GetUnitPosition(unitID)
-local GY = Spring.GetGroundHeight(X, Z)
 local FACING = 0
 
 -- Variables
@@ -146,13 +142,6 @@ for i = 1, 6 do
 end
 
 local SPEED = math.rad(150)
-function TouchDown()
-	stage = 3
-	FACING = select(2, Spring.UnitScript.GetPieceRotation(base)) or 0
-	GG.EmitSfxName(unitID, turret, "mech_jump_dust")
-	PlaySound("stomp")
-end
-
 function RealBoy()
 	StartThread(SmokeUnit, {base, turret})
 	teamID = Spring.GetUnitTeam(unitID)
@@ -166,71 +155,8 @@ function RealBoy()
 	Spring.SetUnitSensorRadius(unitID, "radar", unitDef.radarRadius)
 end
 
-function fx()
-	while stage == 1 do
-		Sleep(50)
-	end
-	if stage == 2 then
-		for i = 1, #exhausts do
-			GG.EmitLupsSfx(unitID, "dropship_vertical_exhaust", exhausts[i], {id = "turret_exhaust", width = 25, length = 70})
-		end
-	end
-	while stage == 2 do
-		Sleep(50)
-	end
-	if stage == 3 then -- for clarity only
-		GG.RemoveLupsSfx(unitID, "turret_exhaust")
-		if unitDef.customParams.hasbap then
-			GG.PlaySoundForTeam(Spring.GetUnitTeam(unitID), "bb_bap_deployed", 1)
-		else
-			GG.PlaySoundForTeam(Spring.GetUnitTeam(unitID), "bb_turret_deployed", 1)
-		end
-		Sleep(1000)
-		PlaySound("turret_deploy")
-		for i = 1,#legs do
-			if largeTurret then
-				Turn(legs[i], x_axis, math.rad(-90), SPEED)
-			else
-				local axis = (i % 2 == 0 and z_axis) or x_axis -- even use z, odd use x
-				local dir = (i == 1 or i == 4) and -1 or 1
-				Turn(legs[i], axis, math.rad(dir * 83), SPEED)
-			end
-		end
-		if legs[4] then -- TODO; shouldn't be needed on the new large turrets, here for garrison versions
-			WaitForTurn(legs[4], z_axis)
-		end
-		if not largeTurret then
-			for i = 1,#legs do
-				local axis = (i % 2 == 0 and z_axis) or x_axis -- even use z, odd use x
-				local dir = (i == 1 or i == 4) and -1 or 1
-				Turn(legs[i], axis, math.rad(dir * 110), SPEED / 5)
-			end
-			local height = 0
-			local angleDiff = math.rad(110 - 83)
-			local hyp = 3.5 / math.sin(angleDiff)
-			while height < 3.5 do
-				local angle = angleDiff - (Spring.UnitScript.GetPieceRotation(legs[1]) - math.rad(250))
-				height = math.sin(angle) * hyp
-				Move(base, y_axis, height)
-				Sleep(50)
-			end
-		end
-		for weaponID, mantlet in pairs(mantlets) do
-			Turn(mantlet, x_axis, 0, SPEED)
-		end
-		for weaponID, mantlet in pairs(mantlets) do
-			WaitForTurn(mantlet, x_axis)
-		end
-		if extend then
-			Move(barrels[1], z_axis, 0, 10)
-			WaitForMove(barrels[1], z_axis)
-		end
-		-- Start acting like a real boy
-		RealBoy()
-	end
-end
-
 function script.Create()
+	Spring.Echo("[MCM Garrison Turret] Created", unitDef.name, "with MCM_Garrison_Turret.lua")
 	-- Garrison emplacements are installed as part of an existing base. They do
 	-- not use the player-turret orbital insertion lifecycle.
 	if unitDef.name == "mcm_garrison_turret_lrm" then
