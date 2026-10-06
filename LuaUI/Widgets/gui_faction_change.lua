@@ -9,6 +9,13 @@ function widget:GetInfo()
         enabled   = true,
     }
 end
+
+-- Faction selection belongs to PvP. Mercs establishes its MC identity through
+-- the Mercs initializer and must never expose the PvP House-selection wheel.
+if Game.modShortName == "MCM" then
+    return false
+end
+
 --------------------------------------------------------------------------------
 -- Var
 --------------------------------------------------------------------------------
