@@ -33,6 +33,9 @@ if modeOwnership.GetMode() ~= "mercs" then
 end
 
 local defs = VFS.Include("LuaRules/Configs/mcm_expedition_defs.lua")
+local campTemplates = VFS.Include("LuaRules/Configs/camp_configs.lua")
+local CAMP_DECAL_ACTION = "mcl_camp_template_decal"
+local TWO_PI = math.pi * 2
 local GAIA_TEAM_ID = Spring.GetGaiaTeamID()
 
 GG.MCMExpeditionSites = GG.MCMExpeditionSites or {}
@@ -273,14 +276,69 @@ local function SelectSites(candidates)
 	return selected
 end
 
-local function SpawnUnit(unitName, x, z, facing, teamID)
+local function DegreesToRadians(degrees)
+	return (tonumber(degrees) or 0) * math.pi / 180
+end
+
+local function RadiansToHeading(radians)
+	radians = radians % TWO_PI
+	return math.floor(radians / TWO_PI * 65536 + 0.5) % 65536
+end
+
+local function PickBaseTemplate(buildingCount)
+	local eligible = {}
+	for name, template in pairs(campTemplates) do
+		if type(template) == "table" and type(template.sockets) == "table" and #template.sockets >= buildingCount then
+			eligible[#eligible + 1] = name
+		end
+	end
+	if #eligible == 0 then
+		return
+	end
+	table.sort(eligible)
+	local name = eligible[math.random(#eligible)]
+	return name, campTemplates[name]
+end
+
+local function TransformSocket(site, socket, rotation)
+	local cosRotation = math.cos(rotation)
+	local sinRotation = math.sin(rotation)
+	local x = site.x + socket.x * cosRotation - socket.z * sinRotation
+	local z = site.z + socket.x * sinRotation + socket.z * cosRotation
+	local heading = RadiansToHeading(rotation + DegreesToRadians(socket.facing))
+	return x, z, heading
+end
+
+local function SendBaseDecal(site, templateName, template, rotation)
+	local tint = template.tint or {0.5, 0.5, 0.5, 0.5}
+	SendToUnsynced(
+		CAMP_DECAL_ACTION,
+		templateName,
+		site.x,
+		site.z,
+		template.width * 0.5,
+		template.height * 0.5,
+		rotation,
+		tonumber(tint[1]) or 0.5,
+		tonumber(tint[2]) or 0.5,
+		tonumber(tint[3]) or 0.5,
+		tonumber(tint[4]) or 0.5,
+		tonumber(template.alpha) or 0.72
+	)
+end
+
+local function SpawnUnit(unitName, x, z, facing, teamID, heading)
 	local def = UnitDefNames[unitName]
 	if not def then
 		Spring.Echo("[MCM Expedition] Missing UnitDef:", unitName)
 		return
 	end
 
-	return Spring.CreateUnit(def.id, x, Spring.GetGroundHeight(x, z), z, facing or 0, teamID)
+	local unitID = Spring.CreateUnit(def.id, x, Spring.GetGroundHeight(x, z), z, facing or 0, teamID)
+	if unitID and heading then
+		Spring.SetUnitHeading(unitID, heading)
+	end
+	return unitID
 end
 
 local function RegisterBaseUnit(base, unitID)
@@ -299,6 +357,20 @@ local function SpawnBase(site, baseNumber, teamID)
 		return
 	end
 
+	local buildingCount = 1 + math.min(strength.support, #archetype.support)
+	local templateName, template = PickBaseTemplate(buildingCount)
+	if not template then
+		Spring.Echo("[MCM Expedition] No camp template has", buildingCount, "building sockets.")
+		return
+	end
+
+	local rotation = math.random() * TWO_PI
+	local sockets = {}
+	for i = 1, #template.sockets do
+		sockets[i] = template.sockets[i]
+	end
+	Shuffle(sockets)
+
 	local base = {
 		id = baseNumber,
 		kind = "base",
@@ -308,22 +380,32 @@ local function SpawnBase(site, baseNumber, teamID)
 		band = site.band,
 		archetype = site.archetype,
 		strength = site.strength,
+		template = templateName,
+		rotation = rotation,
 		teamID = teamID,
 		units = {},
 	}
 
-	RegisterBaseUnit(base, SpawnUnit(archetype.core, site.x, site.z, 0, teamID))
+	local buildings = {archetype.core}
+	local supportOffset = math.random(#archetype.support)
+	for i = 1, buildingCount - 1 do
+		buildings[#buildings + 1] = archetype.support[((i + supportOffset - 2) % #archetype.support) + 1]
+	end
 
-	local supportCount = math.min(strength.support, #archetype.support)
-	for i = 1, supportCount do
-		local angle = (i - 1) * math.pi * 2 / math.max(supportCount, 1) + math.pi / 3
-		local x = site.x + math.sin(angle) * strength.supportRadius
-		local z = site.z + math.cos(angle) * strength.supportRadius
+	local createdBuildings = 0
+	for i = 1, #buildings do
+		local x, z, heading = TransformSocket(site, sockets[i], rotation)
 		if x > 0 and x < Game.mapSizeX and z > 0 and z < Game.mapSizeZ and Spring.GetGroundHeight(x, z) >= 0 then
-			local offset = math.random(#archetype.support)
-			local buildingName = archetype.support[((i + offset - 2) % #archetype.support) + 1]
-			RegisterBaseUnit(base, SpawnUnit(buildingName, x, z, i - 1, teamID))
+			local unitID = SpawnUnit(buildings[i], x, z, 0, teamID, heading)
+			if unitID then
+				RegisterBaseUnit(base, unitID)
+				createdBuildings = createdBuildings + 1
+			end
 		end
+	end
+
+	if createdBuildings > 0 then
+		SendBaseDecal(site, templateName, template, rotation)
 	end
 
 	local turretCount = math.min(strength.turrets, #defs.turrets)
@@ -333,9 +415,10 @@ local function SpawnBase(site, baseNumber, teamID)
 		if not turretName:find("^mcm_garrison_turret_") then
 			Spring.Echo("[MCM Expedition] Refusing non-Mercs turret UnitDef:", turretName)
 		else
-			local angle = (i - 1) * math.pi * 2 / math.max(turretCount, 1)
-			local x = site.x + math.sin(angle) * strength.turretRadius
-			local z = site.z + math.cos(angle) * strength.turretRadius
+			local angle = rotation + (i - 1) * math.pi * 2 / math.max(turretCount, 1)
+			local radius = math.max(strength.turretRadius, (template.dressingExclusionRadius or 0) + 40)
+			local x = site.x + math.sin(angle) * radius
+			local z = site.z + math.cos(angle) * radius
 			if x > 0 and x < Game.mapSizeX and z > 0 and z < Game.mapSizeZ and Spring.GetGroundHeight(x, z) >= 0 then
 				RegisterBaseUnit(base, SpawnUnit(turretName, x, z, i - 1, teamID))
 			end
@@ -344,7 +427,7 @@ local function SpawnBase(site, baseNumber, teamID)
 
 	GG.MCMExpeditionBases[baseNumber] = base
 	GG.MCMExpeditionSites[#GG.MCMExpeditionSites + 1] = base
-	Spring.Echo("[MCM Expedition] Base", baseNumber, archetype.name, "(" .. site.strength .. ")", "[" .. site.band .. "]", "at", math.floor(site.x), math.floor(site.z), "from", site.source)
+	Spring.Echo("[MCM Expedition] Base", baseNumber, archetype.name, "(" .. site.strength .. ")", "[" .. site.band .. "]", "template", templateName, "at", math.floor(site.x), math.floor(site.z), "from", site.source)
 end
 
 function gadget:GameFrame(frame)
