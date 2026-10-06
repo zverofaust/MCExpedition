@@ -228,6 +228,9 @@ local function SpawnBase(site, baseNumber, teamID)
 
 	local turretCount = #defs.turrets
 	for i = 1, turretCount do
+		if not defs.turrets[i]:find("^mcm_garrison_turret_") then
+			Spring.Echo("[MCM Expedition] Refusing non-Mercs turret UnitDef:", defs.turrets[i])
+		else
 		local angle = (i - 1) * math.pi * 2 / turretCount
 		local x = site.x + math.sin(angle) * defs.turretRadius
 		local z = site.z + math.cos(angle) * defs.turretRadius
@@ -237,6 +240,7 @@ local function SpawnBase(site, baseNumber, teamID)
 				base.units[#base.units + 1] = turretID
 				Spring.SetUnitRulesParam(turretID, "mcm_expedition_base", baseNumber, {public = true})
 			end
+		end
 		end
 	end
 
