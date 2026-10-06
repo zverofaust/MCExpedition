@@ -10,6 +10,11 @@ function gadget:GetInfo()
 	}
 end
 
+local modeOwnership = VFS.Include("LuaRules/Configs/mcl_mode_gadgets.lua")
+if not modeOwnership.IsOwnedByActiveMode("Outpost - Salvage Yard") then
+	return false
+end
+
 local CMD_SET_BASE = GG.CustomCommands.GetCmdID("CMD_SET_BASE")
 
 -- Salvager
