@@ -1,8 +1,12 @@
 --------------------------------------------------------------------------------
 -- MechCommander: Mercs - Expedition battlefield generation
 --
--- Prototype: selects authored map locations and creates several independent
--- Mercs bases without using PvP Beacons, Outposts, DropZones or SpamBot.
+-- Selects authored map locations, classifies them by strategic depth from the
+-- Merc insertion point, and generates weighted military installations.
+--
+-- The selected-site representation is deliberately broader than "base": future
+-- passes may reserve sites for patrols, salvage scenes, wrecks, ambushes and
+-- other non-established points of interest without replacing this framework.
 --
 -- Authors: zvero + ChatGPT
 --------------------------------------------------------------------------------
@@ -31,6 +35,7 @@ end
 local defs = VFS.Include("LuaRules/Configs/mcm_expedition_defs.lua")
 local GAIA_TEAM_ID = Spring.GetGaiaTeamID()
 
+GG.MCMExpeditionSites = GG.MCMExpeditionSites or {}
 GG.MCMExpeditionBases = GG.MCMExpeditionBases or {}
 
 local function DistanceSquared(x1, z1, x2, z2)
@@ -126,69 +131,149 @@ local function GetEnemyTeam(mercTeamID)
 	return GAIA_TEAM_ID
 end
 
-local function FilterPlayerArea(candidates, mercTeamID)
-	local x, _, z = Spring.GetTeamStartPosition(mercTeamID)
-	if not x or x < 0 or not z or z < 0 then
-		x = Game.mapSizeX * 0.5
-		z = Game.mapSizeZ * 0.5
+local function PrepareCandidates(candidates, mercTeamID)
+	local playerX, _, playerZ = Spring.GetTeamStartPosition(mercTeamID)
+	if not playerX or playerX < 0 or not playerZ or playerZ < 0 then
+		playerX = Game.mapSizeX * 0.5
+		playerZ = Game.mapSizeZ * 0.5
 	end
 
 	local filtered = {}
 	local exclusionSquared = defs.playerExclusionRadius * defs.playerExclusionRadius
+	local farthest = 0
 
 	for i = 1, #candidates do
-		local site = candidates[i]
-		if DistanceSquared(site.x, site.z, x, z) >= exclusionSquared then
-			filtered[#filtered + 1] = site
+		local candidate = candidates[i]
+		local distanceSquared = DistanceSquared(candidate.x, candidate.z, playerX, playerZ)
+		if distanceSquared >= exclusionSquared then
+			candidate.distance = math.sqrt(distanceSquared)
+			filtered[#filtered + 1] = candidate
+			farthest = math.max(farthest, candidate.distance)
 		end
 	end
 
-	return filtered, x, z
+	for i = 1, #filtered do
+		local normalized = farthest > 0 and filtered[i].distance / farthest or 0
+		filtered[i].depth = normalized
+		if normalized <= defs.distanceBands.near then
+			filtered[i].band = "near"
+		elseif normalized <= defs.distanceBands.operational then
+			filtered[i].band = "operational"
+		else
+			filtered[i].band = "deep"
+		end
+	end
+
+	return filtered
 end
 
-local function ShuffleCandidates(candidates)
-	for i = #candidates, 2, -1 do
-		local j = math.random(i)
-		candidates[i], candidates[j] = candidates[j], candidates[i]
+local function WeightedPick(weights, source)
+	local total = 0
+	local sourceWeights = source and defs.sourceWeights[source]
+	for key, weight in pairs(weights) do
+		total = total + weight * (sourceWeights and sourceWeights[key] or 1)
 	end
+	if total <= 0 then
+		return
+	end
+
+	local roll = math.random() * total
+	for key, weight in pairs(weights) do
+		roll = roll - weight * (sourceWeights and sourceWeights[key] or 1)
+		if roll <= 0 then
+			return key
+		end
+	end
+end
+
+local function Shuffle(list)
+	for i = #list, 2, -1 do
+		local j = math.random(i)
+		list[i], list[j] = list[j], list[i]
+	end
+end
+
+local function SiteIsClear(candidate, selected, spacing)
+	local spacingSquared = spacing * spacing
+	for i = 1, #selected do
+		if DistanceSquared(candidate.x, candidate.z, selected[i].x, selected[i].z) < spacingSquared then
+			return false
+		end
+	end
+	return true
+end
+
+local function SelectBandSites(candidates, band, count, selected)
+	local pool = {}
+	for i = 1, #candidates do
+		if candidates[i].band == band then
+			pool[#pool + 1] = candidates[i]
+		end
+	end
+	Shuffle(pool)
+
+	local added = 0
+	for i = 1, #pool do
+		if SiteIsClear(pool[i], selected, defs.minimumBaseSpacing) then
+			local site = pool[i]
+			site.kind = "base"
+			site.archetype = WeightedPick(defs.archetypeWeights[band], site.source)
+			site.strength = WeightedPick(defs.strengthWeights[band])
+			selected[#selected + 1] = site
+			added = added + 1
+			if added >= count then
+				break
+			end
+		end
+	end
+
+	return added
 end
 
 local function SelectSites(candidates)
-	local spacingSquared = defs.minimumBaseSpacing * defs.minimumBaseSpacing
-	local wanted = math.min(defs.baseCountMax, #candidates)
-	local best = {}
+	local selected = {}
 
-	-- Try several shuffled orders. This keeps authored-site selection varied
-	-- between matches while still respecting the minimum spacing rule.
-	for attempt = 1, 16 do
-		ShuffleCandidates(candidates)
-		local selected = {}
+	for _, band in ipairs({"near", "operational", "deep"}) do
+		local target = defs.baseTargets[band]
+		local count = math.random(target.min, target.max)
+		SelectBandSites(candidates, band, count, selected)
+	end
 
+	-- A small map or unusual authored layout may not contain enough candidates
+	-- in a requested band. Fill missing minimum slots from any remaining site,
+	-- while preserving the global base-spacing rule.
+	local minimum = defs.baseTargets.near.min + defs.baseTargets.operational.min + defs.baseTargets.deep.min
+	if #selected < minimum then
+		local remaining = {}
 		for i = 1, #candidates do
-			local candidate = candidates[i]
-			local clear = true
-
+			local used = false
 			for j = 1, #selected do
-				if DistanceSquared(candidate.x, candidate.z, selected[j].x, selected[j].z) < spacingSquared then
-					clear = false
+				if candidates[i] == selected[j] then
+					used = true
 					break
 				end
 			end
+			if not used then
+				remaining[#remaining + 1] = candidates[i]
+			end
+		end
+		Shuffle(remaining)
 
-			if clear then
-				selected[#selected + 1] = candidate
-				if #selected >= wanted then
-					return selected
+		for i = 1, #remaining do
+			local site = remaining[i]
+			if SiteIsClear(site, selected, defs.minimumBaseSpacing) then
+				site.kind = "base"
+				site.archetype = WeightedPick(defs.archetypeWeights[site.band], site.source)
+				site.strength = WeightedPick(defs.strengthWeights[site.band])
+				selected[#selected + 1] = site
+				if #selected >= minimum then
+					break
 				end
 			end
 		end
-
-		if #selected > #best then
-			best = selected
-		end
 	end
 
-	return best
+	return selected
 end
 
 local function SpawnUnit(unitName, x, z, facing, teamID)
@@ -198,68 +283,71 @@ local function SpawnUnit(unitName, x, z, facing, teamID)
 		return
 	end
 
-	local y = Spring.GetGroundHeight(x, z)
-	local unitID = Spring.CreateUnit(def.id, x, y, z, facing or 0, teamID)
-	if unitID and unitName:find("^mcm_garrison_turret_") then
-		Spring.Echo("[MCM Expedition] Turret UnitDef:", unitName, "scriptName:", UnitDefs[def.id].scriptName)
+	return Spring.CreateUnit(def.id, x, Spring.GetGroundHeight(x, z), z, facing or 0, teamID)
+end
+
+local function RegisterBaseUnit(base, unitID)
+	if unitID then
+		base.units[#base.units + 1] = unitID
+		Spring.SetUnitRulesParam(unitID, "mcm_expedition_base", base.id, {public = true})
+		Spring.SetUnitRulesParam(unitID, "mcm_expedition_strength", base.strength, {public = true})
 	end
-	return unitID
 end
 
 local function SpawnBase(site, baseNumber, teamID)
+	local archetype = defs.archetypes[site.archetype]
+	local strength = defs.strength[site.strength]
+	if not archetype or not strength then
+		Spring.Echo("[MCM Expedition] Invalid base definition:", site.archetype, site.strength)
+		return
+	end
+
 	local base = {
 		id = baseNumber,
+		kind = "base",
 		x = site.x,
 		z = site.z,
 		source = site.source,
+		band = site.band,
+		archetype = site.archetype,
+		strength = site.strength,
 		teamID = teamID,
 		units = {},
 	}
 
-	local centerID = SpawnUnit(defs.baseStructure, site.x, site.z, 0, teamID)
-	if centerID then
-		base.units[#base.units + 1] = centerID
-		Spring.SetUnitRulesParam(centerID, "mcm_expedition_base", baseNumber, {public = true})
-	end
+	RegisterBaseUnit(base, SpawnUnit(archetype.core, site.x, site.z, 0, teamID))
 
-	-- Give each prototype base a small functional-looking building cluster.
-	-- These are Mercs-owned shells; their eventual contract interactions are
-	-- intentionally not implemented here.
-	local buildingCount = math.min(3, #defs.buildings)
-	for i = 1, buildingCount do
-		local angle = (i - 1) * math.pi * 2 / buildingCount + math.pi / 3
-		local x = site.x + math.sin(angle) * 125
-		local z = site.z + math.cos(angle) * 125
-		local buildingName = defs.buildings[((baseNumber + i - 2) % #defs.buildings) + 1]
+	local supportCount = math.min(strength.support, #archetype.support)
+	for i = 1, supportCount do
+		local angle = (i - 1) * math.pi * 2 / math.max(supportCount, 1) + math.pi / 3
+		local x = site.x + math.sin(angle) * strength.supportRadius
+		local z = site.z + math.cos(angle) * strength.supportRadius
 		if x > 0 and x < Game.mapSizeX and z > 0 and z < Game.mapSizeZ and Spring.GetGroundHeight(x, z) >= 0 then
-			local buildingID = SpawnUnit(buildingName, x, z, i - 1, teamID)
-			if buildingID then
-				base.units[#base.units + 1] = buildingID
-				Spring.SetUnitRulesParam(buildingID, "mcm_expedition_base", baseNumber, {public = true})
-			end
+			local offset = math.random(#archetype.support)
+			local buildingName = archetype.support[((i + offset - 2) % #archetype.support) + 1]
+			RegisterBaseUnit(base, SpawnUnit(buildingName, x, z, i - 1, teamID))
 		end
 	end
 
-	local turretCount = #defs.turrets
+	local turretCount = math.min(strength.turrets, #defs.turrets)
+	local turretOffset = math.random(#defs.turrets)
 	for i = 1, turretCount do
-		if not defs.turrets[i]:find("^mcm_garrison_turret_") then
-			Spring.Echo("[MCM Expedition] Refusing non-Mercs turret UnitDef:", defs.turrets[i])
+		local turretName = defs.turrets[((i + turretOffset - 2) % #defs.turrets) + 1]
+		if not turretName:find("^mcm_garrison_turret_") then
+			Spring.Echo("[MCM Expedition] Refusing non-Mercs turret UnitDef:", turretName)
 		else
-		local angle = (i - 1) * math.pi * 2 / turretCount
-		local x = site.x + math.sin(angle) * defs.turretRadius
-		local z = site.z + math.cos(angle) * defs.turretRadius
-		if x > 0 and x < Game.mapSizeX and z > 0 and z < Game.mapSizeZ and Spring.GetGroundHeight(x, z) >= 0 then
-			local turretID = SpawnUnit(defs.turrets[i], x, z, i - 1, teamID)
-			if turretID then
-				base.units[#base.units + 1] = turretID
-				Spring.SetUnitRulesParam(turretID, "mcm_expedition_base", baseNumber, {public = true})
+			local angle = (i - 1) * math.pi * 2 / math.max(turretCount, 1)
+			local x = site.x + math.sin(angle) * strength.turretRadius
+			local z = site.z + math.cos(angle) * strength.turretRadius
+			if x > 0 and x < Game.mapSizeX and z > 0 and z < Game.mapSizeZ and Spring.GetGroundHeight(x, z) >= 0 then
+				RegisterBaseUnit(base, SpawnUnit(turretName, x, z, i - 1, teamID))
 			end
-		end
 		end
 	end
 
 	GG.MCMExpeditionBases[baseNumber] = base
-	Spring.Echo("[MCM Expedition] Base", baseNumber, "spawned at", math.floor(site.x), math.floor(site.z), "from", site.source)
+	GG.MCMExpeditionSites[#GG.MCMExpeditionSites + 1] = base
+	Spring.Echo("[MCM Expedition] Base", baseNumber, archetype.name, "(" .. site.strength .. ")", "[" .. site.band .. "]", "at", math.floor(site.x), math.floor(site.z), "from", site.source)
 end
 
 function gadget:GameFrame(frame)
@@ -269,14 +357,13 @@ function gadget:GameFrame(frame)
 
 	local mercTeamID = GetMercTeam()
 	if not mercTeamID then
-		Spring.Echo("[MCM Expedition] No Merc team available; base generation skipped.")
+		Spring.Echo("[MCM Expedition] No Merc team available; battlefield generation skipped.")
 		gadgetHandler:RemoveGadget(self)
 		return
 	end
 
-	local candidates = LoadCandidates()
-	local filtered, playerX, playerZ = FilterPlayerArea(candidates, mercTeamID)
-	local selected = SelectSites(filtered)
+	local candidates = PrepareCandidates(LoadCandidates(), mercTeamID)
+	local selected = SelectSites(candidates)
 	local enemyTeamID = GetEnemyTeam(mercTeamID)
 
 	for i = 1, #selected do
@@ -286,11 +373,6 @@ function gadget:GameFrame(frame)
 	Spring.SetGameRulesParam("mcm_expedition_base_count", #selected, {public = true})
 	Spring.SetGameRulesParam("mcm_contract_active", 1, {public = true})
 
-	if #selected < defs.baseCountMin then
-		Spring.Echo("[MCM Expedition] WARNING: only", #selected, "suitable authored base sites were available.")
-	else
-		Spring.Echo("[MCM Expedition] Generated", #selected, "prototype bases.")
-	end
-
+	Spring.Echo("[MCM Expedition] Generated", #selected, "strategic bases from", #candidates, "usable authored sites.")
 	gadgetHandler:RemoveGadget(self)
 end
