@@ -84,12 +84,9 @@ local function LoadCandidates()
 				end
 			end
 
-			if type(camps) == "table" then
-				for i = 1, #camps do
-					AddCandidate(candidates, camps[i].x, camps[i].z, "camp")
-				end
-			end
-
+			-- Camps are reserved for future transient encounters and minor POIs.
+			-- Established garrison bases use only authored Beacon/resource sites
+			-- and map start positions.
 			if type(starts) == "table" then
 				for _, site in pairs(starts) do
 					AddCandidate(candidates, site.x, site.z, "start")
