@@ -11,7 +11,7 @@
 local GarrisonTurret = Unit:New{
 	name = "Garrison Weapon Emplacement",
 	description = "Fixed military weapon emplacement",
-	script = "MCM_Garrison_Turret.lua",
+	script = "mcm_garrison_turret.lua",
 	category = "structure notbeacon ground",
 	iconType = "turret",
 	activateWhenBuilt = true,
