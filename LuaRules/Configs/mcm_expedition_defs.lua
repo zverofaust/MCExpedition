@@ -23,9 +23,9 @@ return {
 	},
 
 	turrets = {
-		"turret_ac10",
-		"turret_lpl",
-		"turret_lrm",
+		"mcm_garrison_turret_ac10",
+		"mcm_garrison_turret_lpl",
+		"mcm_garrison_turret_lrm",
 	},
 
 	turretRadius = 230,
