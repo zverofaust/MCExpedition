@@ -280,11 +280,6 @@ local function DegreesToRadians(degrees)
 	return (tonumber(degrees) or 0) * math.pi / 180
 end
 
-local function RadiansToHeading(radians)
-	radians = radians % TWO_PI
-	return math.floor(radians / TWO_PI * 65536 + 0.5) % 65536
-end
-
 local function PickBaseTemplate(buildingCount)
 	local eligible = {}
 	for name, template in pairs(campTemplates) do
@@ -305,8 +300,9 @@ local function TransformSocket(site, socket, rotation)
 	local sinRotation = math.sin(rotation)
 	local x = site.x + socket.x * cosRotation - socket.z * sinRotation
 	local z = site.z + socket.x * sinRotation + socket.z * cosRotation
-	local heading = RadiansToHeading(rotation + DegreesToRadians(socket.facing))
-	return x, z, heading
+	local facingRadians = (rotation + DegreesToRadians(socket.facing)) % TWO_PI
+	local facing = math.floor(facingRadians / (math.pi * 0.5) + 0.5) % 4
+	return x, z, facing
 end
 
 local function SendBaseDecal(site, templateName, template, rotation)
@@ -327,18 +323,14 @@ local function SendBaseDecal(site, templateName, template, rotation)
 	)
 end
 
-local function SpawnUnit(unitName, x, z, facing, teamID, heading)
+local function SpawnUnit(unitName, x, z, facing, teamID)
 	local def = UnitDefNames[unitName]
 	if not def then
 		Spring.Echo("[MCM Expedition] Missing UnitDef:", unitName)
 		return
 	end
 
-	local unitID = Spring.CreateUnit(def.id, x, Spring.GetGroundHeight(x, z), z, facing or 0, teamID)
-	if unitID and heading then
-		Spring.SetUnitHeading(unitID, heading)
-	end
-	return unitID
+	return Spring.CreateUnit(def.id, x, Spring.GetGroundHeight(x, z), z, facing or 0, teamID)
 end
 
 local function RegisterBaseUnit(base, unitID)
@@ -394,9 +386,9 @@ local function SpawnBase(site, baseNumber, teamID)
 
 	local createdBuildings = 0
 	for i = 1, #buildings do
-		local x, z, heading = TransformSocket(site, sockets[i], rotation)
+		local x, z, facing = TransformSocket(site, sockets[i], rotation)
 		if x > 0 and x < Game.mapSizeX and z > 0 and z < Game.mapSizeZ and Spring.GetGroundHeight(x, z) >= 0 then
-			local unitID = SpawnUnit(buildings[i], x, z, 0, teamID, heading)
+			local unitID = SpawnUnit(buildings[i], x, z, facing, teamID)
 			if unitID then
 				RegisterBaseUnit(base, unitID)
 				createdBuildings = createdBuildings + 1
