@@ -55,17 +55,16 @@ local sidedata = {
 	},
 }
 
--- Mercenary Outfit is a MechCommander: Mercs identity only. Insert it as the
--- first side so direct engine launches, which otherwise inherit sidedata[1],
--- default to MC rather than Federated Suns. MCL/PvP never receives this entry.
-if Game and Game.modShortName == "MCM" then
-	table.insert(sidedata, 1, {
-		name = "Mercenary Outfit",
-		shortName = "MC",
-		startUnit = "",
-		techBase = "merc",
-		texmods = {},
-	})
-end
+-- Mercenary Outfit belongs to the MCM game package itself. Gamedata is parsed
+-- while the engine is constructing game metadata, before runtime Game globals
+-- are reliable, so do not gate this entry on Game.modShortName. The separate
+-- MCL package retains its own sidedata and therefore never advertises MC.
+table.insert(sidedata, 1, {
+	name = "Mercenary Outfit",
+	shortName = "MC",
+	startUnit = "",
+	techBase = "merc",
+	texmods = {},
+})
 
 return sidedata
