@@ -24,6 +24,7 @@ if not gadgetHandler:IsSyncedCode() then
 end
 
 GG.mechCache = {}
+GG.mechBays = GG.mechBays or {}
 
 for unitDefID, unitDef in pairs(UnitDefs) do
 	if unitDef.customParams.baseclass == "mech" then
