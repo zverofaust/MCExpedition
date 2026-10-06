@@ -225,7 +225,7 @@ function gadget:UnitEnteredRadar(unitID, unitTeam, allyTeam, unitDefID)
 	--Spring.Echo("UERadar:", unitID, unitTeam, UnitDefs[unitDefID].name)
 	if not mobileUnitDefs[unitDefID] then
 		-- statics are perma-visible
-		if GG.outpostDefs[unitDefID] then
+		if GG.outpostDefs and GG.outpostDefs[unitDefID] and Script.LuaRules.OutpostVisible then
 			Script.LuaRules.OutpostVisible(unitID, unitDefID, unitTeam, allyTeam)
 		end
 		DelayCall(SetUnitLosState, {unitID, allyTeam, fullLOS}, 1)
