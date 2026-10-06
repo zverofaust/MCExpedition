@@ -359,7 +359,7 @@ function M.UnitDefExplicitEligibility(unitDef)
 	if mode == M.UNIT_PARAM_ENABLE then
 		return true
 	end
-	return Lower(cp.baseclass) == "mech"
+	return Lower(cp.baseclass) == "mech" or cp.dropship ~= nil
 end
 
 function M.UnitDefExplicitlyDisabled(unitDef)
