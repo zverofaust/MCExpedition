@@ -10,6 +10,11 @@ function gadget:GetInfo()
 	}
 end
 
+local modeOwnership = VFS.Include("LuaRules/Configs/mcl_mode_gadgets.lua")
+if not modeOwnership.IsOwnedByActiveMode("Game - Beacon Manager") then
+	return false
+end
+
 -- function localisations
 local floor						= math.floor
 -- Synced Read
