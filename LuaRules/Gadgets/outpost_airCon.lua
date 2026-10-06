@@ -15,6 +15,11 @@ if not modeOwnership.IsOwnedByActiveMode("Outpost - Aerofighter Control Tower") 
 	return false
 end
 
+local modeOwnership = VFS.Include("LuaRules/Configs/mcl_mode_gadgets.lua")
+if not modeOwnership.IsOwnedByActiveMode("Outpost - Aerofighter Control Tower") then
+	return false
+end
+
 if not gadgetHandler:IsSyncedCode() then return false end
 
 local sqrt = math.sqrt
