@@ -10,6 +10,11 @@ function gadget:GetInfo()
 	}
 end
 
+local modeOwnership = VFS.Include("LuaRules/Configs/mcl_mode_gadgets.lua")
+if not modeOwnership.IsOwnedByActiveMode("Outpost - AI Turret Control") then
+	return false
+end
+
 if gadgetHandler:IsSyncedCode() then
 --	SYNCED
 
