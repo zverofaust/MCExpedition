@@ -24,10 +24,14 @@ if not gadgetHandler:IsSyncedCode() then
 end
 
 GG.mechCache = {}
+GG.turretCache = {}
 GG.mechBays = GG.mechBays or {}
 
 for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams.baseclass == "mech" then
+	local baseclass = unitDef.customParams.baseclass
+	if baseclass == "mech" then
 		GG.mechCache[unitDefID] = unitDef.customParams.menu
+	elseif baseclass == "turret" or baseclass == "mcm_turret" then
+		GG.turretCache[unitDefID] = true
 	end
 end
