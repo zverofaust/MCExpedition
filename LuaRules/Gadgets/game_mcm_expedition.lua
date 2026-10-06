@@ -204,6 +204,24 @@ local function SpawnBase(site, baseNumber, teamID)
 		Spring.SetUnitRulesParam(centerID, "mcm_expedition_base", baseNumber, {public = true})
 	end
 
+	-- Give each prototype base a small functional-looking building cluster.
+	-- These are Mercs-owned shells; their eventual contract interactions are
+	-- intentionally not implemented here.
+	local buildingCount = math.min(3, #defs.buildings)
+	for i = 1, buildingCount do
+		local angle = (i - 1) * math.pi * 2 / buildingCount + math.pi / 3
+		local x = site.x + math.sin(angle) * 125
+		local z = site.z + math.cos(angle) * 125
+		local buildingName = defs.buildings[((baseNumber + i - 2) % #defs.buildings) + 1]
+		if x > 0 and x < Game.mapSizeX and z > 0 and z < Game.mapSizeZ and Spring.GetGroundHeight(x, z) >= 0 then
+			local buildingID = SpawnUnit(buildingName, x, z, i - 1, teamID)
+			if buildingID then
+				base.units[#base.units + 1] = buildingID
+				Spring.SetUnitRulesParam(buildingID, "mcm_expedition_base", baseNumber, {public = true})
+			end
+		end
+	end
+
 	local turretCount = #defs.turrets
 	for i = 1, turretCount do
 		local angle = (i - 1) * math.pi * 2 / turretCount
