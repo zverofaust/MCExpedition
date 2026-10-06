@@ -200,8 +200,7 @@ menuCmdDescs[7].tooltip = "Select omnimech weapon loadout configuration"
 --menuCmdDescs[7].hidden = true
 
 -- Mods
-local mechBays = {} -- mechBayID = level
-GG.mechBays = mechBays
+local mechBays = GG.mechBays -- shared service registry; PvP owns the Mechbay implementation
 local hiddenMods = {} -- unitDefID = {[i] = true, etc}
 
 -- Omni
