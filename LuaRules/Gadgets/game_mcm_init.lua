@@ -110,6 +110,8 @@ function gadget:Initialize()
 	Spring.SetGameRulesParam("mcm_merc_team", mercTeamID, {public = true})
 	Spring.SetGameRulesParam("mcm_contract_active", 0, {public = true})
 	Spring.SetTeamRulesParam(mercTeamID, "mcm_merc_team", 1, {public = true})
+	Spring.SetTeamRulesParam(mercTeamID, "side", "mc", {public = true})
+	Spring.SetTeamRulesParam(mercTeamID, "mcm_faction", "mc", {public = true})
 
 end
 
