@@ -293,7 +293,7 @@ function gadget:UnitCreated(unitID, unitDefID, teamID)
 		ClearDefaultCmds(unitID)
 		-- Add back in 
 		AddMechMenu(unitID)
-		GG.AddApps(unitID, unitDefID)
+		-- Perks/upgrades/mods are optional mode-owned systems.\n\t	if GG.AddApps then\n\t		GG.AddApps(unitID, unitDefID)\n\t	end
 		
 		if not lookup[unitDefID] then
 			-- setup the cache
