@@ -111,5 +111,10 @@ function gadget:Initialize()
 	Spring.SetGameRulesParam("mcm_contract_active", 0, {public = true})
 	Spring.SetTeamRulesParam(mercTeamID, "mcm_merc_team", 1, {public = true})
 
-	SpawnFoundationLance(mercTeamID)
+end
+
+function gadget:GameStart()
+	if mercTeamID then
+		SpawnFoundationLance(mercTeamID)
+	end
 end
