@@ -15,6 +15,11 @@ if not modeOwnership.IsOwnedByActiveMode("Outpost - DropZone") then
 	return false
 end
 
+local modeOwnership = VFS.Include("LuaRules/Configs/mcl_mode_gadgets.lua")
+if not modeOwnership.IsOwnedByActiveMode("Outpost - DropZone") then
+	return false
+end
+
 if gadgetHandler:IsSyncedCode() then
 --	SYNCED
 
