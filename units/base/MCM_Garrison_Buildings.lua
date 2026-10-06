@@ -11,6 +11,7 @@
 local GarrisonBuilding = Unit:New{
 	name                  = "Garrison Structure",
 	description           = "Military field installation",
+	script                = "MCM_Garrison_Structure.lua",
 	category              = "structure ground notbeacon",
 	iconType              = "outpost",
 	explodeAs             = "outpostexplode",
