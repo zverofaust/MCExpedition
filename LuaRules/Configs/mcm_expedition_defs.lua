@@ -14,6 +14,16 @@ return {
 	minimumSiteSpacing = 900,
 	minimumBaseSpacing = 1200,
 
+	-- Expedition opponents are limited to Inner Sphere successor-state forces.
+	-- Mercenary Outfit and Clan factions are deliberately excluded.
+	enemyFactions = {
+		"FS",
+		"LA",
+		"DC",
+		"CC",
+		"FW",
+	},
+
 	-- Distance bands are fractions of the farthest usable authored site on the
 	-- current map. This scales naturally between small and large battlefields.
 	distanceBands = {
