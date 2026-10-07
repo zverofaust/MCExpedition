@@ -106,6 +106,41 @@ return {
 		heavy = {support = 3, turrets = 3, supportRadius = 145, turretRadius = 255},
 	},
 
+
+	-- Mobile garrison defenders are drawn directly from the faction-prefixed
+	-- UnitDefs represented by the existing Inner Sphere vehicle class folders.
+	-- Higher classes consume composition weight rather than simply inflating
+	-- unit count. Assault vehicles are additionally hard-capped at one per base.
+	vehicleForces = {
+		folders = {
+			light = "units/is/Vehicles/Light",
+			medium = "units/is/Vehicles/Medium",
+			heavy = "units/is/Vehicles/Heavy",
+			assault = "units/is/Vehicles/Assault",
+		},
+		classCost = {
+			light = 1,
+			medium = 2,
+			heavy = 3,
+			assault = 5,
+		},
+		light = {
+			budget = {min = 4, max = 6},
+			weights = {light = 80, medium = 20},
+		},
+		moderate = {
+			budget = {min = 7, max = 10},
+			weights = {light = 35, medium = 45, heavy = 20},
+		},
+		heavy = {
+			budget = {min = 11, max = 15},
+			weights = {light = 15, medium = 40, heavy = 38, assault = 7},
+		},
+		spawnRadius = 340,
+		spawnSpacing = 72,
+		maxAssault = 1,
+	},
+
 	archetypes = {
 		checkpoint = {
 			name = "Checkpoint",
