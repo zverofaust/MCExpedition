@@ -44,6 +44,18 @@ local SpawnProjectile					= Spring.SpawnProjectile
 -- GG
 local DelayCall							= GG.Delay.DelayCall
 
+local function DelayedChangeHeat(unitID, changeHeat, amount)
+	if Spring.UnitScript.CallAsUnit and changeHeat then
+		Spring.UnitScript.CallAsUnit(unitID, changeHeat, amount)
+	end
+end
+
+local function DelayedEmitSfxName(unitID, pieceNum, effectName)
+	if GG.EmitSfxName then
+		GG.EmitSfxName(unitID, pieceNum, effectName)
+	end
+end
+
 -- Constants
 local ARROW_CLUSTER_ID = WeaponDefNames["arrowiv_cluster"].id
 local AMS_DEF = WeaponDefNames["ams"] 
@@ -487,8 +499,8 @@ function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, w
 				local fxInfo = {unitID, pieceNum, "sparks"}
 				-- lol this is silly
 				for i = 1, NARC_DURATION, 30 do
-					DelayCall(Spring.UnitScript.CallAsUnit, info, i)
-					DelayCall(GG.EmitSfxName, fxInfo, i)
+					DelayCall(DelayedChangeHeat, info, i)
+					DelayCall(DelayedEmitSfxName, fxInfo, i)
 				end
 			end
 		elseif specialAmmo == "haywire" then
