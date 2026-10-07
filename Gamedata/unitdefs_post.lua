@@ -537,6 +537,41 @@ for name, ud in pairs(UnitDefs) do
 	end
 end
 
+-- Generate Mercenary Outfit Mech definitions from the existing faction variants.
+-- Each unique XX_Chassis_Variant produces one MC_Chassis_Variant. The source
+-- definition is selected deterministically, while retaining its already-resolved
+-- model, corpse, weapons and other processed data.
+if VALID_SIDES["mc"] then
+	local mercMechSources = {}
+
+	for name, ud in pairs(UnitDefs) do
+		local cp = ud.customparams
+		local side = name:sub(1, 2)
+
+		if cp and cp.baseclass == "mech" and side ~= "mc" and VALID_SIDES[side] then
+			local identity = name:sub(4)
+			if not mercMechSources[identity] or name < mercMechSources[identity] then
+				mercMechSources[identity] = name
+			end
+		end
+	end
+
+	for identity, sourceName in pairs(mercMechSources) do
+		local mercName = "mc_" .. identity
+
+		if not UnitDefs[mercName] then
+			local mercDef = {}
+			table.copy(UnitDefs[sourceName], mercDef)
+
+			mercDef.unitname = mercName
+			mercDef.buildpic = mercName .. ".png"
+
+			UnitDefs[mercName] = mercDef
+			table.insert(DROPZONE_BUILDOPTIONS["mc"], mercName)
+		end
+	end
+end
+
 local function sorter(a, b)
 	local tonnageA = tonumber(UnitDefs[a].customparams.tonnage)
 	local tonnageB = tonumber(UnitDefs[b].customparams.tonnage)
