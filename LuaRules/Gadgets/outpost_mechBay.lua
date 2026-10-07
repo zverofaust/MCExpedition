@@ -520,7 +520,7 @@ function gadget:CommandFallback(unitID, unitDefID, teamID, cmdID, cmdParams, cmd
 				local x,y,z = Spring.GetUnitPiecePosDir(unitID, mechlink)
 				Spring.GiveOrderToUnit(targetID, CMD.LOAD_ONTO, {unitID}, {})
 				Spring.SetUnitMoveGoal(targetID, x,y,z, 1)
-				GG.Delay.DelayCall(Spring.UnitScript.CallAsUnit, {unitID, env.script.TransportPickup, targetID}, 30 * 5) -- 5 seconds
+				GG.Delay.DelayCall(Spring.UnitScript.CallAsUnit, {unitID, env.script.TransportPickup, targetID}, 30 * 5, "outpost_mechBay:TransportPickup") -- 5 seconds
 				-- need some command fallback for that? use load_onto?
 			end
 			return true, true
