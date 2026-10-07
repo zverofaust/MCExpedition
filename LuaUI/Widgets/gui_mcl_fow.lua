@@ -18,13 +18,14 @@ local modOptions = Spring.GetModOptions() or {}
 
 -- Custom FOW. Native Recoil LOS-map rendering is suppressed while this widget
 -- is active; actual engine LOS/gameplay state is NOT changed.
+--
+-- Mercs owns the full three-state presentation: Unexplored / Explored / Visible.
+-- PvP deliberately collapses Unexplored into Explored, retaining only the
+-- established Explored / Visible presentation regardless of legacy fowstyle.
 local FOG_COLOR = {0.025, 0.030, 0.035}
 local EXPLORED_FOG_ALPHA = 0.62
-local FOW_STYLE = string.lower(tostring(modOptions.fowstyle or "explored"))
-local UNEXPLORED_FOG_ALPHA =
-	(FOW_STYLE == "unexplored")
-	and 0.86
-	or EXPLORED_FOG_ALPHA
+local MERCS_FOW = Game.modShortName == "MCM"
+local UNEXPLORED_FOG_ALPHA = MERCS_FOW and 0.86 or EXPLORED_FOG_ALPHA
 local VISIBLE_FOG_ALPHA = 0.00
 
 -- Visual-only organic treatment for the Unexplored <-> Explored frontier.
