@@ -139,6 +139,16 @@ return {
 		spawnRadius = 340,
 		spawnSpacing = 72,
 		maxAssault = 1,
+
+		-- Lance tonnage modifies class availability/weighting without changing
+		-- the installation's own light/moderate/heavy strength classification.
+		-- Level boundaries are <100, <200, <300, otherwise level 4.
+		forceLevelWeights = {
+			[1] = {light = 1.35, medium = 0.65, heavy = 0.10, assault = 0.00},
+			[2] = {light = 1.15, medium = 1.00, heavy = 0.55, assault = 0.00},
+			[3] = {light = 0.90, medium = 1.05, heavy = 1.00, assault = 0.65},
+			[4] = {light = 0.65, medium = 1.00, heavy = 1.25, assault = 1.50},
+		},
 	},
 
 	archetypes = {
