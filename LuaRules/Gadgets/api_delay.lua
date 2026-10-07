@@ -30,7 +30,7 @@ local currentFrame = 0
 --frameNumber = {call, call...}
 local calls = {}
 
-local function DelayCall(f, args, delay, label)
+local function DelayCall(f, args, delay)
 	if not delay or delay < 1 then
 		delay = 1
 	else
@@ -45,7 +45,7 @@ local function DelayCall(f, args, delay, label)
 
 	local frameCalls = calls[targetFrame]
 
-	frameCalls[#frameCalls+1] = {f, args, tostring(f), currentFrame, delay, label or "unlabelled"}
+	frameCalls[#frameCalls+1] = {f, args}
 end
 
 function gadget:GameFrame(n)
@@ -57,15 +57,15 @@ function gadget:GameFrame(n)
 			-- check if argument is a unitID and if it is dead
 			local unitID = currCall[2][1]
 			if (unitID and Spring.ValidUnitID(unitID) and Spring.GetUnitIsDead(unitID)) then
-				Spring.Echo("[Delay API] Cancelled delayed call for dead unit:", currCall[3], "unit", unitID, "scheduled", currCall[4], "delay", currCall[5], "target", n)
+				-- dead-unit delayed calls are intentionally discarded
 			-- this is gross but can't think how this can be non-valid without being dead, unless it is beyond tombstoned...
 			-- ... and can't just check for valid unitID as first param may actually be e.g. a teamID
 			elseif (currCall[1] == Spring.GiveOrderToUnit and unitID and not Spring.ValidUnitID(unitID)) then
-				Spring.Echo("[Delay API] Cancelled GiveOrderToUnit for invalid unit:", unitID, "scheduled", currCall[4], "delay", currCall[5], "target", n)
+				-- invalid-unit orders are intentionally discarded
 			elseif type(currCall[1]) == "function" then
 				currCall[1](unpack(currCall[2]))
 			else
-				Spring.Echo("[Delay API] ERROR missing callback:", currCall[6], currCall[3], "scheduled", currCall[4], "delay", currCall[5], "target", n)
+				Spring.Echo("[Delay API] ERROR: missing delayed callback at frame", n)
 			end
 		end
 		--delete
