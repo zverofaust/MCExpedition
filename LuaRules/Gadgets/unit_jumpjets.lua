@@ -581,7 +581,7 @@ function gadget:CommandFallback(unitID, unitDefID, teamID, cmdID, cmdParams, cmd
 		else -- need to turn
 			if not GG.turning[unitID] then
 				--Spring.Echo("not GG.turning")
-				GG.Delay.DelayCall(TurnOrder, {unitID, cmdParams[1], cmdParams[2], cmdParams[3]}, 1, "unit_jumpjets:TurnOrder")
+				GG.Delay.DelayCall(TurnOrder, {unitID, cmdParams[1], cmdParams[2], cmdParams[3]}, 1)
 			end
 			return true, true
 		end
