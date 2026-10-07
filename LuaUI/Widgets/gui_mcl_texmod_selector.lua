@@ -192,10 +192,6 @@ local function RefreshEffectiveSide(force)
 	pendingElapsed = 0
 	RefreshSelectionState()
 
-	Spring.Echo(string.format(
-		"[MCL TexMods] Paint selector resolved faction '%s' via %s; %d paint option(s).",
-		tostring(effectiveSide), tostring(effectiveSideSource), #allowedTexmods
-	))
 	return true
 end
 
@@ -450,10 +446,6 @@ function widget:Update(dt)
 			FinishSelector()
 			return
 		elseif pendingElapsed >= PENDING_TIMEOUT then
-			Spring.Echo(string.format(
-				"[MCL TexMods] Paint selection '%s' was not accepted; keeping '%s'.",
-				tostring(pendingSelection), tostring(selected)
-			))
 			pendingSelection = nil
 			pendingElapsed = 0
 		end
