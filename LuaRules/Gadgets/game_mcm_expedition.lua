@@ -16,7 +16,7 @@ function gadget:GetInfo()
 		name      = "MCM - Expedition",
 		desc      = "Generates the Mercs Expedition battlefield",
 		author    = "zvero + ChatGPT",
-		date      = "06/10/26",
+		date      = "07/10/26",
 		license   = "GNU GPL v2",
 		layer     = 5,
 		enabled   = true,
@@ -561,7 +561,7 @@ local function SpawnBase(site, baseNumber, teamID)
 end
 
 function gadget:GameFrame(frame)
-	if frame ~= 10 then
+	if frame < 10 or Spring.GetGameRulesParam("mcm_lance_ready") ~= 1 then
 		return
 	end
 
