@@ -1,5 +1,12 @@
 local sidedata = {
 	{
+		name = "Mercenary Outfit",
+		shortName = "MC",
+		startUnit = "beacon",
+		techBase = "merc",
+		texmods = {},
+	},
+	{
 		name = "Federated Suns",
 		shortName = "FS",
 		startUnit = "beacon",
@@ -55,16 +62,5 @@ local sidedata = {
 	},
 }
 
--- Mercenary Outfit belongs to the MCM game package itself. Gamedata is parsed
--- while the engine is constructing game metadata, before runtime Game globals
--- are reliable, so do not gate this entry on Game.modShortName. The separate
--- MCL package retains its own sidedata and therefore never advertises MC.
-table.insert(sidedata, 1, {
-	name = "Mercenary Outfit",
-	shortName = "MC",
-	startUnit = "",
-	techBase = "merc",
-	texmods = {},
-})
 
 return sidedata
