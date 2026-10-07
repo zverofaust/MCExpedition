@@ -36,31 +36,12 @@ local mercTeamID
 local ordered = false
 local canonicalMechs = {}
 
-local function GetVariantKey(unitDef)
-	local name = unitDef and unitDef.name
-	if not name then
-		return
-	end
-	return name:gsub("^[^_]+_", "", 1)
-end
-
-local function BuildCanonicalCatalog()
-	local byVariant = {}
+local function BuildMercCatalog()
 	for unitDefID, unitDef in pairs(UnitDefs) do
 		local cp = unitDef.customParams
-		if cp and cp.baseclass == "mech" then
-			local key = GetVariantKey(unitDef)
-			if key then
-				local current = byVariant[key]
-				if not current or unitDef.name < current.name then
-					byVariant[key] = unitDef
-				end
-			end
+		if cp and cp.baseclass == "mech" and unitDef.name:sub(1, 3) == "mc_" then
+			canonicalMechs[unitDef.name] = unitDefID
 		end
-	end
-
-	for _, unitDef in pairs(byVariant) do
-		canonicalMechs[unitDef.name] = unitDef.id
 	end
 end
 
@@ -145,7 +126,7 @@ end
 
 function gadget:Initialize()
 	mercTeamID = Spring.GetGameRulesParam("mcm_merc_team")
-	BuildCanonicalCatalog()
+	BuildMercCatalog()
 	Spring.SetGameRulesParam("mcm_lance_ready", 0, {public = true})
 	Spring.SetGameRulesParam("mcm_lance_size", 0, {public = true})
 end
