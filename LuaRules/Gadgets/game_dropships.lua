@@ -82,12 +82,12 @@ function SpawnDropship(beaconID, unitID, teamID, dropshipType, cargo, cost, offs
 			for i, order in ipairs(cargo) do -- preserve order here
 				for orderDefID, count in pairs(order) do
 					for i = 1, count do
-						DelayCall(SpawnCargo, {beaconID, unitID, dropshipID, orderDefID, teamID}, 1)
+						DelayCall(SpawnCargo, {beaconID, unitID, dropshipID, orderDefID, teamID}, 1, "game_dropships:SpawnCargoOrder")
 					end
 				end
 			end
 		else
-			DelayCall(SpawnCargo, {beaconID, unitID, dropshipID, cargo, teamID}, 1)
+			DelayCall(SpawnCargo, {beaconID, unitID, dropshipID, cargo, teamID}, 1, "game_dropships:SpawnCargo")
 		end
 		return dropshipID
 	elseif teamID and not select(3, Spring.GetTeamInfo(teamID)) then -- dropzone moved or beacon was capped, but team lives
@@ -144,7 +144,7 @@ function DropshipDelivery(beaconID, beaconPointID, teamID, dropshipType, cargo, 
 	}
 	-- check dropshipType for mech deliveries and add to front of queue
 	local priority = delay == 0
-	DelayCall(BeaconEnqueueDropship, {beaconID, beaconPointID, teamID, info, priority}, delay)
+	DelayCall(BeaconEnqueueDropship, {beaconID, beaconPointID, teamID, info, priority}, delay, "game_dropships:BeaconEnqueue")
 	if cost then -- deduct cost immediately to give feedback to player that order was accepted
 	-- will be refunded later if it fails (e.g. beacon capped)
 		--Spring.Echo("COST!?", cost)
