@@ -235,7 +235,7 @@ local function RestartSelector(allMode)
 	elapsed = INITIAL_GRACE
 	pollAccumulator = 0
 
-	-- A testing restart deliberately returns the force to the normal Team texture
+	-- A testing restart deliberately disables texture overrides with Team
 	-- first, then presents the same selector again. This makes repeated texture
 	-- swaps easy to verify without restarting the match.
 	Spring.SendLuaRulesMsg(MSG_PREFIX .. TEXMOD.DEFAULT_TEXMOD)
@@ -504,7 +504,7 @@ function widget:DrawScreen()
 	gl.Color(1, 1, 1, 1)
 	gl.Text(CanonicalSideCaption(), centerX, centerY + titleOffset, 22 * scale, "oc")
 	gl.Color(0.72, 0.72, 0.72, 1)
-	gl.Text(debugAll and "Debug mode: showing every paint scheme in Gamedata/texmods.lua" or "Choose a force paint scheme - missing unit textures automatically use Team", centerX, centerY + statusOffset, 12 * scale, "oc")
+	gl.Text(debugAll and "Debug mode: showing every paint scheme in Gamedata/texmods.lua" or "Choose a force paint scheme - missing overrides use the model's native texture", centerX, centerY + statusOffset, 12 * scale, "oc")
 
 	for i = 1, #allowedTexmods do
 		DrawRingWedge(i, i == hoveredIndex)
@@ -578,8 +578,8 @@ function widget:GetTooltip(mx, my)
 	local texmod = allowedTexmods[hoveredIndex]
 	local preview = previewPaths[texmod] and " Preview: " .. previewPaths[texmod] .. "." or ""
 	if texmod == TEXMOD.DEFAULT_TEXMOD then
-		return "Team: use the model's normal *_Team.dds texture." .. preview
+		return "Team: disable texture overrides and use each model's native texture." .. preview
 	end
 	local display = TEXMOD.GetTexmodDisplayName(texmod, texmodData)
-	return display .. " (" .. texmod .. "): use *_" .. texmod .. ".dds where available; missing textures fall back to Team." .. preview
+	return display .. " (" .. texmod .. "): use *_" .. texmod .. ".dds where available; otherwise try the faction override, then the model's native texture." .. preview
 end
