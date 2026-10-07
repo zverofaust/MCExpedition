@@ -33,37 +33,18 @@ local Chili
 local initialized = false
 local waitingForDeployment = false
 
-local function GetVariantKey(unitDef)
-	local name = unitDef and unitDef.name
-	if not name then
-		return
-	end
-	return name:gsub("^[^_]+_", "", 1)
-end
-
 local function BuildCatalog()
-	local byVariant = {}
 	for unitDefID, unitDef in pairs(UnitDefs) do
 		local cp = unitDef.customParams
-		if cp and cp.baseclass == "mech" then
-			local key = GetVariantKey(unitDef)
-			if key then
-				local current = byVariant[key]
-				if not current or unitDef.name < current.name then
-					byVariant[key] = unitDef
-				end
-			end
+		if cp and cp.baseclass == "mech" and unitDef.name:sub(1, 3) == "mc_" then
+			catalog[#catalog + 1] = {
+				id = unitDefID,
+				name = unitDef.name,
+				humanName = unitDef.humanName or unitDef.name,
+				variant = cp.variant or "",
+				tonnage = tonumber(cp.tonnage) or 0,
+			}
 		end
-	end
-
-	for _, unitDef in pairs(byVariant) do
-		catalog[#catalog + 1] = {
-			id = unitDef.id,
-			name = unitDef.name,
-			humanName = unitDef.humanName or unitDef.name,
-			variant = unitDef.customParams.variant or "",
-			tonnage = tonumber(unitDef.customParams.tonnage) or 0,
-		}
 	end
 
 	table.sort(catalog, function(a, b)
