@@ -228,8 +228,8 @@ function gadget:UnitEnteredRadar(unitID, unitTeam, allyTeam, unitDefID)
 		if GG.outpostDefs and GG.outpostDefs[unitDefID] and Script.LuaRules.OutpostVisible then
 			Script.LuaRules.OutpostVisible(unitID, unitDefID, unitTeam, allyTeam)
 		end
-		DelayCall(SetUnitLosState, {unitID, allyTeam, fullLOS}, 1, "game_radar:SetUnitLosState")
-		DelayCall(SetUnitLosMask, {unitID, allyTeam, fullLOS}, 1, "game_radar:SetUnitLosMask") -- don't let engine update any los status
+		DelayCall(SetUnitLosState, {unitID, allyTeam, fullLOS}, 1)
+		DelayCall(SetUnitLosMask, {unitID, allyTeam, fullLOS}, 1) -- don't let engine update any los status
 		local warning = warnings[unitDefID]
 		if warning then
 			local x,y,z = GetUnitPosition(unitID)
