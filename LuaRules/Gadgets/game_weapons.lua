@@ -44,6 +44,11 @@ local SpawnProjectile					= Spring.SpawnProjectile
 -- GG
 local DelayCall							= GG.Delay.DelayCall
 
+local function IsDropship(unitDefID)
+	local unitDef = UnitDefs[unitDefID]
+	return unitDef and unitDef.customParams and unitDef.customParams.dropship
+end
+
 local function DelayedChangeHeat(unitID, changeHeat, amount)
 	if Spring.UnitScript.CallAsUnit and changeHeat then
 		Spring.UnitScript.CallAsUnit(unitID, changeHeat, amount)
@@ -483,7 +488,7 @@ function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, w
 	-- NARCs
 	if weaponID == NARC_ID then
 		-- Don't allow dropships to be NARCed
-		if GG.dropShipCache[unitDefID] then return 0 end
+		if IsDropship(unitDefID) then return 0 end
 		if specialAmmo == "bola" then
 			--Spring.Echo("speed change now", Spring.GetGameFrame())
 			GG.SpeedChange(unitID, unitDefID, 0.1)
@@ -526,7 +531,7 @@ function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, w
 		return 0
 	elseif weaponID == TAG_ID then
 		-- Don't allow dropships to be TAGed
-		if not GG.dropShipCache[unitDefID] then
+		if not IsDropship(unitDefID) then
 			SetUnitRulesParam(unitID, "TAG", GetGameFrame(), {inlos = true})
 			--Spring.Echo("I AM BEING TAGGED!")
 		end
