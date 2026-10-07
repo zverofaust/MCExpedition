@@ -62,8 +62,10 @@ function gadget:GameFrame(n)
 			-- ... and can't just check for valid unitID as first param may actually be e.g. a teamID
 			elseif (currCall[1] == Spring.GiveOrderToUnit and unitID and not Spring.ValidUnitID(unitID)) then
 				currCall[1] = nil
+			elseif type(currCall[1]) == "function" then
+				currCall[1](unpack(currCall[2]))
 			else
-				currCall[1](unpack(currCall[2])) 
+				Spring.Echo("[Delay API] Ignoring delayed call with missing function at frame", n)
 			end
 		end
 		--delete
