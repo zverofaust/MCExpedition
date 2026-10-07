@@ -55,7 +55,6 @@ function gadget:Initialize()
 	for _, teamID in ipairs(GetTeamList()) do
 		SetTeamTexmod(teamID, TEXMOD.DEFAULT_TEXMOD)
 	end
-	Echo("[MCL TexMods] Initialized. Default paint scheme for every team is 'Team'.")
 end
 
 function gadget:RecvLuaMsg(msg, playerID)
@@ -88,10 +87,6 @@ function gadget:RecvLuaMsg(msg, playerID)
 		end
 
 		SetTeamTexmod(teamID, canonical)
-		Echo(string.format(
-			"[MCL TexMods] DEBUG: team %d selected paint scheme '%s' via %s (/texmodall).",
-			teamID, canonical, playerName
-		))
 		return true
 	end
 
