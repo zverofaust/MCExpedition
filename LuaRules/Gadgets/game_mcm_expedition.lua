@@ -299,6 +299,75 @@ local function SelectSites(candidates)
 	return selected
 end
 
+local function BuildVehiclePools(faction)
+	local pools = {}
+	local vehicleDefs = defs.vehicleForces
+	for className, folder in pairs(vehicleDefs.folders) do
+		local pool = {}
+		local files = VFS.DirList(folder, "*.lua") or {}
+		for i = 1, #files do
+			local chassis = files[i]:match("([^/\\]+)%.lua$")
+			local unitDef = chassis and UnitDefNames[(faction .. "_" .. chassis):lower()]
+			if unitDef and unitDef.customParams and unitDef.customParams.baseclass == "vehicle"
+				and not unitDef.customParams.support then
+				pool[#pool + 1] = unitDef.name
+			end
+		end
+		pools[className] = pool
+	end
+	return pools
+end
+
+local function PickVehicleClass(profile, pools, budget, assaultCount)
+	local eligible = {}
+	local total = 0
+	for className, weight in pairs(profile.weights) do
+		local cost = defs.vehicleForces.classCost[className]
+		local pool = pools[className]
+		if cost and cost <= budget and pool and #pool > 0
+			and (className ~= "assault" or assaultCount < defs.vehicleForces.maxAssault) then
+			eligible[className] = weight
+			total = total + weight
+		end
+	end
+	if total <= 0 then
+		return
+	end
+	local roll = math.random() * total
+	for className, weight in pairs(eligible) do
+		roll = roll - weight
+		if roll <= 0 then
+			return className
+		end
+	end
+end
+
+local function SelectVehicleForce(strengthName, pools)
+	local profile = defs.vehicleForces[strengthName]
+	if not profile then
+		return {}
+	end
+	local force = {}
+	local budget = math.random(profile.budget.min, profile.budget.max)
+	local assaultCount = 0
+	while budget > 0 do
+		local className = PickVehicleClass(profile, pools, budget, assaultCount)
+		if not className then
+			break
+		end
+		local pool = pools[className]
+		force[#force + 1] = {
+			name = pool[math.random(#pool)],
+			class = className,
+		}
+		budget = budget - defs.vehicleForces.classCost[className]
+		if className == "assault" then
+			assaultCount = assaultCount + 1
+		end
+	end
+	return force
+end
+
 local function DegreesToRadians(degrees)
 	return (tonumber(degrees) or 0) * math.pi / 180
 end
@@ -398,6 +467,7 @@ local function SpawnBase(site, baseNumber, teamID)
 		template = templateName,
 		rotation = rotation,
 		teamID = teamID,
+		faction = Spring.GetGameRulesParam("mcm_enemy_faction"),
 		units = {},
 	}
 
@@ -436,6 +506,23 @@ local function SpawnBase(site, baseNumber, teamID)
 			local z = site.z + math.cos(angle) * radius
 			if x > 0 and x < Game.mapSizeX and z > 0 and z < Game.mapSizeZ and Spring.GetGroundHeight(x, z) >= 0 then
 				RegisterBaseUnit(base, SpawnUnit(turretName, x, z, i - 1, teamID))
+			end
+		end
+	end
+
+	local vehicleForce = SelectVehicleForce(site.strength, BuildVehiclePools(base.faction))
+	local vehicleRadius = math.max(defs.vehicleForces.spawnRadius, strength.turretRadius + 85)
+	for i = 1, #vehicleForce do
+		local angle = rotation + (i - 1) * TWO_PI / math.max(#vehicleForce, 1)
+		local radius = vehicleRadius + ((i % 2) * defs.vehicleForces.spawnSpacing)
+		local x = site.x + math.sin(angle) * radius
+		local z = site.z + math.cos(angle) * radius
+		if x > 0 and x < Game.mapSizeX and z > 0 and z < Game.mapSizeZ and Spring.GetGroundHeight(x, z) >= 0 then
+			local unitID = SpawnUnit(vehicleForce[i].name, x, z, math.floor((angle % TWO_PI) / (math.pi * 0.5) + 0.5) % 4, teamID)
+			if unitID then
+				RegisterBaseUnit(base, unitID)
+				Spring.SetUnitRulesParam(unitID, "mcm_garrison_vehicle", 1, {public = true})
+				Spring.SetUnitRulesParam(unitID, "mcm_vehicle_class", vehicleForce[i].class, {public = true})
 			end
 		end
 	end
