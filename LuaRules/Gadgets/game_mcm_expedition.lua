@@ -557,7 +557,6 @@ local function SpawnBase(site, baseNumber, teamID)
 
 	GG.MCMExpeditionBases[baseNumber] = base
 	GG.MCMExpeditionSites[#GG.MCMExpeditionSites + 1] = base
-	Spring.Echo("[MCM Expedition] Base", baseNumber, archetype.name, "(" .. site.strength .. ")", "[" .. site.band .. "]", "template", templateName, "at", math.floor(site.x), math.floor(site.z), "from", site.source)
 end
 
 function gadget:GameFrame(frame)
@@ -585,8 +584,5 @@ function gadget:GameFrame(frame)
 	Spring.SetGameRulesParam("mcm_expedition_base_count", #selected, {public = true})
 	Spring.SetGameRulesParam("mcm_contract_active", 1, {public = true})
 
-	Spring.Echo("[MCM Expedition] Merc Lance:", lanceTonnage .. "t", "force level", forceLevel)
-	Spring.Echo("[MCM Expedition] Enemy force:", enemyFaction, "using", enemyTexmod, "paint scheme.")
-	Spring.Echo("[MCM Expedition] Generated", #selected, "strategic bases from", #candidates, "usable authored sites.")
 	gadgetHandler:RemoveGadget(self)
 end
