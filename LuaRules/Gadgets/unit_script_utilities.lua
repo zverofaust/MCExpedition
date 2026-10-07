@@ -95,7 +95,7 @@ GG.GetUnitDistanceToPoint = GetUnitDistanceToPoint
 
 function SpawnDecal(decalName, x, z, size, angle, delay, duration)
 	if delay then
-		GG.Delay.DelayCall(SpawnDecal, {decalName, x, z, size, angle, duration}, delay)
+		GG.Delay.DelayCall(SpawnDecal, {decalName, x, z, size, angle, duration}, delay, "unit_script_utilities:SpawnDecal")
 	else
 		SendToUnsynced("SPAWNDECAL", decalName, x, z, size, angle, duration)
 	end
@@ -232,14 +232,14 @@ local function SpawnDecal(eventID, decalName, x, z, decalSize, angle, killCode)
 			-- fade in
 			if duration.fadeIn then
 				Spring.SetGroundDecalAlpha(decalID, 0, -1/duration.fadeIn)
-				GG.Delay.DelayCall(Spring.SetGroundDecalAlpha, {decalID, 1, 0}, math.floor(duration.fadeIn*30))
+				GG.Delay.DelayCall(Spring.SetGroundDecalAlpha, {decalID, 1, 0}, math.floor(duration.fadeIn*30), "unit_script_utilities:DecalFadeIn")
 			else
 				Spring.SetGroundDecalAlpha(decalID, 1, 0)
 			end
 			-- schedule a fade out
-			GG.Delay.DelayCall(Spring.SetGroundDecalAlpha, {decalID, 1, 1/duration.fadeOut}, ((duration.fadeIn or 0) + duration.stable)*30)
+			GG.Delay.DelayCall(Spring.SetGroundDecalAlpha, {decalID, 1, 1/duration.fadeOut}, ((duration.fadeIn or 0) + duration.stable)*30, "unit_script_utilities:DecalFadeOut")
 			--GG.Delay.DelayCall(Spring.Echo, {"SetGroundDecalAlpha"}, ((duration.fadeIn or 0) + duration.stable)*30)
-			GG.Delay.DelayCall(Spring.DestroyGroundDecal, {decalID}, ((duration.fadeIn or 0) + duration.stable + duration.fadeOut)*30)
+			GG.Delay.DelayCall(Spring.DestroyGroundDecal, {decalID}, ((duration.fadeIn or 0) + duration.stable + duration.fadeOut)*30, "unit_script_utilities:DestroyDecal")
 			--GG.Delay.DelayCall(Spring.Echo,  {"DestroyGroundDecal"}, ((duration.fadeIn or 0) + duration.stable + duration.fadeOut)*30)
 		end
 	end
