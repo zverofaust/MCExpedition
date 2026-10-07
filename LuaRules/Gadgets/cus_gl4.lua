@@ -934,15 +934,17 @@ local function BuildTexmodTexturePath(unitDef, texmod, teamID)
 	end
 
 	local teamFaction = GetTeamFactionFolder(teamID)
-	local schemeFaction = GetTexmodFactionFolder(texmod) or teamFaction
-	if not schemeFaction then
-		return nil, nil, "team faction could not be resolved"
+	local schemeFaction = GetTexmodFactionFolder(texmod)
+	local faction = schemeFaction or teamFaction
+	if not faction then
+		return nil, nil, "texmod faction could not be resolved"
 	end
 
-	local schemePath = "unittextures/texmods/" .. schemeFaction .. "/" .. stem .. "_" .. texmod .. ".dds"
-	local factionPath = teamFaction
-		and ("unittextures/texmods/" .. teamFaction .. "/" .. stem .. "_" .. teamFaction .. ".dds")
-		or nil
+	-- The selected scheme is authoritative for its faction. For example,
+	-- LyranGuards must fall back to LA, regardless of stale/alternate team-side
+	-- metadata. Team side is used only when the scheme has no configured faction.
+	local schemePath = "unittextures/texmods/" .. faction .. "/" .. stem .. "_" .. texmod .. ".dds"
+	local factionPath = "unittextures/texmods/" .. faction .. "/" .. stem .. "_" .. faction .. ".dds"
 	return schemePath, factionPath
 end
 
