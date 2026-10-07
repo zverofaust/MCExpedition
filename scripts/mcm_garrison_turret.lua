@@ -156,7 +156,6 @@ function RealBoy()
 end
 
 function script.Create()
-	Spring.Echo("[MCM Garrison Turret] Created", unitDef.name, "with MCM_Garrison_Turret.lua")
 	-- Garrison emplacements are installed as part of an existing base. They do
 	-- not use the player-turret orbital insertion lifecycle.
 	if unitDef.name == "mcm_garrison_turret_lrm" then
