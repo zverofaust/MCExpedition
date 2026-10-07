@@ -299,6 +299,32 @@ local function SelectSites(candidates)
 	return selected
 end
 
+local function GetLanceForceLevel(mercTeamID)
+	local tonnage = 0
+	local units = Spring.GetTeamUnits(mercTeamID) or {}
+	for i = 1, #units do
+		local unitID = units[i]
+		if Spring.GetUnitRulesParam(unitID, "mcm_lance") == 1 then
+			local unitDef = UnitDefs[Spring.GetUnitDefID(unitID)]
+			local unitTonnage = unitDef and unitDef.customParams and tonumber(unitDef.customParams.tonnage)
+			tonnage = tonnage + (unitTonnage or 0)
+		end
+	end
+
+	local level = 4
+	if tonnage < 100 then
+		level = 1
+	elseif tonnage < 200 then
+		level = 2
+	elseif tonnage < 300 then
+		level = 3
+	end
+
+	Spring.SetGameRulesParam("mcm_lance_tonnage", tonnage, {public = true})
+	Spring.SetGameRulesParam("mcm_force_level", level, {public = true})
+	return level, tonnage
+end
+
 local function BuildVehiclePools(faction)
 	local pools = {}
 	local vehicleDefs = defs.vehicleForces
@@ -318,10 +344,12 @@ local function BuildVehiclePools(faction)
 	return pools
 end
 
-local function PickVehicleClass(profile, pools, budget, assaultCount)
+local function PickVehicleClass(profile, pools, budget, assaultCount, forceLevel)
 	local eligible = {}
 	local total = 0
+	local levelWeights = defs.vehicleForces.forceLevelWeights[forceLevel] or defs.vehicleForces.forceLevelWeights[1]
 	for className, weight in pairs(profile.weights) do
+		weight = weight * (levelWeights[className] or 0)
 		local cost = defs.vehicleForces.classCost[className]
 		local pool = pools[className]
 		if cost and cost <= budget and pool and #pool > 0
@@ -342,7 +370,7 @@ local function PickVehicleClass(profile, pools, budget, assaultCount)
 	end
 end
 
-local function SelectVehicleForce(strengthName, pools)
+local function SelectVehicleForce(strengthName, pools, forceLevel)
 	local profile = defs.vehicleForces[strengthName]
 	if not profile then
 		return {}
@@ -351,7 +379,7 @@ local function SelectVehicleForce(strengthName, pools)
 	local budget = math.random(profile.budget.min, profile.budget.max)
 	local assaultCount = 0
 	while budget > 0 do
-		local className = PickVehicleClass(profile, pools, budget, assaultCount)
+		local className = PickVehicleClass(profile, pools, budget, assaultCount, forceLevel)
 		if not className then
 			break
 		end
@@ -510,7 +538,7 @@ local function SpawnBase(site, baseNumber, teamID)
 		end
 	end
 
-	local vehicleForce = SelectVehicleForce(site.strength, BuildVehiclePools(base.faction))
+	local vehicleForce = SelectVehicleForce(site.strength, BuildVehiclePools(base.faction), Spring.GetGameRulesParam("mcm_force_level") or 1)
 	local vehicleRadius = math.max(defs.vehicleForces.spawnRadius, strength.turretRadius + 85)
 	for i = 1, #vehicleForce do
 		local angle = rotation + (i - 1) * TWO_PI / math.max(#vehicleForce, 1)
@@ -544,6 +572,7 @@ function gadget:GameFrame(frame)
 		return
 	end
 
+	local forceLevel, lanceTonnage = GetLanceForceLevel(mercTeamID)
 	local candidates = PrepareCandidates(LoadCandidates(), mercTeamID)
 	local selected = SelectSites(candidates)
 	local enemyTeamID = GetEnemyTeam(mercTeamID)
@@ -556,6 +585,7 @@ function gadget:GameFrame(frame)
 	Spring.SetGameRulesParam("mcm_expedition_base_count", #selected, {public = true})
 	Spring.SetGameRulesParam("mcm_contract_active", 1, {public = true})
 
+	Spring.Echo("[MCM Expedition] Merc Lance:", lanceTonnage .. "t", "force level", forceLevel)
 	Spring.Echo("[MCM Expedition] Enemy force:", enemyFaction, "using", enemyTexmod, "paint scheme.")
 	Spring.Echo("[MCM Expedition] Generated", #selected, "strategic bases from", #candidates, "usable authored sites.")
 	gadgetHandler:RemoveGadget(self)
