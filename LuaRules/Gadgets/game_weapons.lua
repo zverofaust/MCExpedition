@@ -191,7 +191,7 @@ local function ApplyPPC(unitID, unitDefID)
 	ppcUnits[unitID] = GetGameFrame() + delay
 	SetUnitRulesParam(unitID, "PPC_HIT", ppcUnits[unitID], {inlos = true})
 	SetUnitRulesParam(unitID, "FXOFF", 1, {public = true})
-	DelayCall(FinishPPC, {unitID}, delay, "game_weapons:FinishPPC")
+	DelayCall(FinishPPC, {unitID}, delay)
 end
 GG.ApplyPPC = ApplyPPC -- for inhbitor removal self own
 
@@ -306,7 +306,7 @@ function RangeToTarget(proID, proOwnerID, clusterWD, tx, tz, range2)
 		if dist2 < range2 then
 			SpawnCluster(proID, proOwnerID, clusterWD, nil, 2.5, 0.25, true)
 		else
-			DelayCall(RangeToTarget, {proID, proOwnerID, clusterWD, tx, tz, range2}, 15, "game_weapons:RangeToTarget")
+			DelayCall(RangeToTarget, {proID, proOwnerID, clusterWD, tx, tz, range2}, 15)
 		end
 	end
 end
@@ -487,7 +487,7 @@ function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, w
 		if specialAmmo == "bola" then
 			--Spring.Echo("speed change now", Spring.GetGameFrame())
 			GG.SpeedChange(unitID, unitDefID, 0.1)
-			DelayCall(GG.SpeedChange, {unitID, unitDefID, 1}, 5*30, "game_weapons:SpeedChange")
+			DelayCall(GG.SpeedChange, {unitID, unitDefID, 1}, 5*30)
 		elseif specialAmmo == "explosivepod" then
 			return damage
 		elseif specialAmmo == "thermite" then
@@ -499,20 +499,20 @@ function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, w
 				local fxInfo = {unitID, pieceNum, "sparks"}
 				-- lol this is silly
 				for i = 1, NARC_DURATION, 30 do
-					DelayCall(DelayedChangeHeat, info, i, "game_weapons:ThermiteHeat")
-					DelayCall(DelayedEmitSfxName, fxInfo, i, "game_weapons:ThermiteSfx")
+					DelayCall(DelayedChangeHeat, info, i)
+					DelayCall(DelayedEmitSfxName, fxInfo, i)
 				end
 			end
 		elseif specialAmmo == "haywire" then
 			GG.setWeaponClassAttribute(unitID, "all", "accuracy", 2)
-			DelayCall(GG.setWeaponClassAttribute, {unitID, "all", "accuracy", 0.5}, NARC_DURATION, "game_weapons:HaywireReset")
+			DelayCall(GG.setWeaponClassAttribute, {unitID, "all", "accuracy", 0.5}, NARC_DURATION)
 		elseif specialAmmo == "ecm" then
 			local x,y,z = GetUnitPosition(unitID)
 			if x then
 				local ecmBeacon = Spring.CreateUnit("narc_ecm", x, y, z, 0, attackerTeam)
 				Spring.UnitAttach(unitID, ecmBeacon, 0)
 				SetUnitRulesParam(unitID, "ENEMY_ECM", GetGameFrame() + FRAME_FUDGE + NARC_DURATION)
-				DelayCall(Spring.DestroyUnit, {ecmBeacon}, NARC_DURATION, "game_weapons:DestroyECMBeacon")
+				DelayCall(Spring.DestroyUnit, {ecmBeacon}, NARC_DURATION)
 			end
 		else -- regular NARC
 			--if GG.GetUnitUnderJammer(unitID, unitTeam) then return 0 end
@@ -520,7 +520,7 @@ function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, w
 			-- do the NARC, delay the deNARC
 			local duration = GetUnitRulesParam(attackerID, "NARC_DURATION") or NARC_DURATION
 			GG.NARC(unitID, allyTeam, duration)
-			DelayCall(GG.DeNARC, {unitID, allyTeam}, duration, "game_weapons:DeNARC")
+			DelayCall(GG.DeNARC, {unitID, allyTeam}, duration)
 		end
 		-- NARC does 0 damage
 		return 0
@@ -545,7 +545,7 @@ function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, w
 					["ttl"] = 1,
 				}
 				for i = 1, 6 do
-					DelayCall(SpawnProjectile, {WeaponDefNames["ppc_fx"].id, params}, (i-1) * 2, "game_weapons:PPCFX")
+					DelayCall(SpawnProjectile, {WeaponDefNames["ppc_fx"].id, params}, (i-1) * 2)
 				end
 				GG.PlaySoundAtUnit(unitID, "sounds/weapons/ppc_connect.wav", 5, x - ox, y - oy, z - oz, "sfx")
 			end
