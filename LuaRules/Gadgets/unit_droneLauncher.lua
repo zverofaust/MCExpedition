@@ -22,6 +22,12 @@ local apcDeployed = {} -- apcID = number deployed
 local apcTargets = {} -- apcID = targetID
 local baAPCs = {} -- baID = apcID
 
+local function ResumeWander(apcID)
+	if GG.Wander then
+		GG.Wander(apcID, CMD.FIGHT)
+	end
+end
+
 
 local function GroupCentre(group)
 	local x, z, n = 0, 0, 0
@@ -64,7 +70,7 @@ local function APCCountChange(apcID, change)
 	if apcDeployed[apcID] == 0 then
 		-- everyone is home, be on your way
 		--Spring.Echo(apcID, "Everyone is back, Wander")
-		GG.Delay.DelayCall(GG.Wander, {apcID, CMD.FIGHT}, 30)
+		GG.Delay.DelayCall(ResumeWander, {apcID}, 30, "unit_droneLauncher:ResumeWander")
 	end
 end
 
@@ -91,7 +97,7 @@ local function Embark(apcID)
 		Spring.GiveOrderToUnitMap(apcGroups[apcID], CMD_EMBARK, {}, {})
 	else
 		--Spring.Echo(apcID, "Asked to embark but already full, so Wander")
-		GG.Delay.DelayCall(GG.Wander, {apcID, CMD.FIGHT}, 30)
+		GG.Delay.DelayCall(ResumeWander, {apcID}, 30, "unit_droneLauncher:ResumeWander")
 	end
 end
 GG.Embark = Embark
@@ -106,7 +112,7 @@ GG.Embark = Embark
 		Spring.GiveOrderToUnitMap(apcGroups[apcID], CMD_EMBARK, {}, {})
 	else
 		Spring.Echo(apcID, "Asked to embark but already full, so Wander")
-		GG.Delay.DelayCall(GG.Wander, {apcID, CMD.FIGHT}, 30)
+		GG.Delay.DelayCall(ResumeWander, {apcID}, 30, "unit_droneLauncher:ResumeWander")
 	end
 end]]
 
