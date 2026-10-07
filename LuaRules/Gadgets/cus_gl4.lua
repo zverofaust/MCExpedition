@@ -335,7 +335,6 @@ local texmodState = {
 	textureKeyCache = {},
 	missingWarnings = {},
 	missingTextureInfo = {},
-	resolutionWarnings = {},
 	texturePathIndex = {},
 	texmodData = texmodConfig.LoadTexmodData(),
 	sideData = texmodConfig.LoadSideData(),
@@ -867,30 +866,6 @@ local function LogMissingTexmod(unitID, unitDefID, texmod, expectedPath, reason)
 	end
 end
 
-local function LogTexmodResolution(unitID, unitDefID, texmod, resolution, path)
-	if Spring.GetSpectatingState and Spring.GetSpectatingState() then
-		return
-	end
-	local unitTeam = unitID and Spring.GetUnitTeam(unitID)
-	local myTeamID = Spring.GetMyTeamID and Spring.GetMyTeamID()
-	if unitTeam == nil or myTeamID == nil or unitTeam ~= myTeamID then
-		return
-	end
-	local key = tostring(unitDefID) .. "|" .. tostring(texmod) .. "|" .. tostring(resolution)
-	if texmodState.resolutionWarnings[key] then
-		return
-	end
-	texmodState.resolutionWarnings[key] = true
-	local unitDef = UnitDefs[unitDefID]
-	Spring.Echo(string.format(
-		"[MCL TexMods] %s: '%s' resolved via %s -> %s",
-		tostring(unitDef and unitDef.name or unitDefID),
-		tostring(texmod),
-		tostring(resolution),
-		tostring(path)
-	))
-end
-
 local function UnitUsesTexmod(unitID, unitDefID)
 	return not texmodConfig.UnitDefExplicitlyDisabled(UnitDefs[unitDefID])
 end
@@ -1051,10 +1026,8 @@ local function GetUnitTexmodTextureKey(unitID, unitDefID)
 	local unitDef = UnitDefs[unitDefID]
 	local candidate, factionFallback, reason = BuildTexmodTexturePath(unitDef, texmod, Spring.GetUnitTeam(unitID))
 	local resolved = ResolveTexturePath(candidate)
-	local resolution = "selected scheme"
 	if not resolved and factionFallback then
 		resolved = ResolveTexturePath(factionFallback)
-		resolution = "faction fallback"
 	end
 	if not resolved then
 		local missingReason = reason or "DDS file not found"
@@ -1079,7 +1052,6 @@ local function GetUnitTexmodTextureKey(unitID, unitDefID)
 		return defaultKey
 	end
 	texmodState.missingTextureInfo[cacheKey] = nil
-	LogTexmodResolution(unitID, unitDefID, texmod, resolution, resolved)
 
 	local textureTable = CopyTextureTable(baseTextures)
 	-- Only healthy texture1 changes. texture2, normal map, wreck textures and
