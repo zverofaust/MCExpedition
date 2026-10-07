@@ -337,6 +337,7 @@ local texmodState = {
 	missingTextureInfo = {},
 	texturePathIndex = {},
 	texmodData = texmodConfig.LoadTexmodData(),
+	sideData = texmodConfig.LoadSideData(),
 	texmodFactionByScheme = {},
 	botBuddyEnabled = texmodConfig.BotBuddyTexmodsEnabled(),
 	lastRecheckFrame = -999999,
@@ -851,7 +852,7 @@ local function LogMissingTexmod(unitID, unitDefID, texmod, expectedPath, reason)
 	local humanName = unitDef and unitDef.humanName
 	local displayName = humanName and (internalName .. " (" .. humanName .. ")") or internalName
 	local message = string.format(
-		"[MCL TexMods] Missing texmod for %s: requested '%s'%s%s; using Team for this UnitDef.",
+		"[MCL TexMods] Missing texmod for %s: requested '%s'%s%s; using the model's native texture.",
 		tostring(displayName),
 		tostring(texmod),
 		expectedPath and (", expected " .. tostring(expectedPath)) or "",
@@ -866,15 +867,7 @@ local function LogMissingTexmod(unitID, unitDefID, texmod, expectedPath, reason)
 end
 
 local function UnitUsesTexmod(unitID, unitDefID)
-	local unitDef = UnitDefs[unitDefID]
-	if not unitDef or texmodConfig.UnitDefExplicitlyDisabled(unitDef) then
-		return false
-	end
-	if texmodConfig.UnitDefExplicitEligibility(unitDef) then
-		return true
-	end
-	return texmodState.botBuddyEnabled
-		and Spring.GetUnitRulesParam(unitID, texmodConfig.BOT_BUDDY_RULE_PARAM) == 1
+	return not texmodConfig.UnitDefExplicitlyDisabled(UnitDefs[unitDefID])
 end
 
 local function GetTeamTexmod(teamID)
@@ -905,7 +898,19 @@ local function GetTexmodFactionFolder(texmod)
 	return nil
 end
 
-local function BuildTexmodTexturePath(unitDef, texmod)
+local function GetTeamFactionFolder(teamID)
+	local side, sideEntry = texmodConfig.GetEffectiveTeamSide(teamID, texmodState.sideData)
+	local _, factionKey = texmodConfig.GetTexmodEntry(side, texmodState.texmodData, sideEntry)
+	if factionKey then
+		return tostring(factionKey)
+	end
+	if type(side) == "string" and side ~= "" then
+		return string.upper(side)
+	end
+	return nil
+end
+
+local function BuildTexmodTexturePath(unitDef, texmod, teamID)
 	local model = unitDef and unitDef.model
 	local textures = model and model.textures
 	local tex1 = textures and textures.tex1
@@ -913,26 +918,32 @@ local function BuildTexmodTexturePath(unitDef, texmod)
 		return nil, nil, "unit has no S3O texture1 name"
 	end
 
-	local factionFolder = GetTexmodFactionFolder(texmod)
-	if not factionFolder then
-		return nil, nil, "texmod is not assigned to a faction in Gamedata/texmods.lua"
-	end
-
 	local filename = tex1:gsub("\\", "/")
 	filename = filename:gsub("^[Uu][Nn][Ii][Tt][Tt][Ee][Xx][Tt][Uu][Rr][Ee][Ss]/", "")
 	filename = filename:match("([^/]+)$") or filename
 	local lower = filename:lower()
-	local suffix = "_team.dds"
-	if lower:sub(-#suffix) ~= suffix then
-		return nil, nil, "texture1 does not end in _Team.dds"
+	if lower:sub(-4) ~= ".dds" then
+		return nil, nil, "texture1 is not a DDS texture"
 	end
 
-	local stem = filename:sub(1, #filename - #suffix)
-	local directory = "unittextures/texmods/" .. factionFolder .. "/"
-	local factionFallback = unitDef.customParams and unitDef.customParams.dropship
-		and (directory .. stem .. "_" .. factionFolder .. ".dds")
+	-- _Team is the historical paintable suffix. Native textures without it are
+	-- also valid: their complete filename stem becomes the override stem.
+	local stem = filename:sub(1, #filename - 4)
+	if lower:sub(-9) == "_team.dds" then
+		stem = filename:sub(1, #filename - 9)
+	end
+
+	local teamFaction = GetTeamFactionFolder(teamID)
+	local schemeFaction = GetTexmodFactionFolder(texmod) or teamFaction
+	if not schemeFaction then
+		return nil, nil, "team faction could not be resolved"
+	end
+
+	local schemePath = "unittextures/texmods/" .. schemeFaction .. "/" .. stem .. "_" .. texmod .. ".dds"
+	local factionPath = teamFaction
+		and ("unittextures/texmods/" .. teamFaction .. "/" .. stem .. "_" .. teamFaction .. ".dds")
 		or nil
-	return directory .. stem .. "_" .. texmod .. ".dds", factionFallback
+	return schemePath, factionPath
 end
 
 local function ResolveTexturePath(candidate)
@@ -1011,7 +1022,7 @@ local function GetUnitTexmodTextureKey(unitID, unitDefID)
 	end
 
 	local unitDef = UnitDefs[unitDefID]
-	local candidate, factionFallback, reason = BuildTexmodTexturePath(unitDef, texmod)
+	local candidate, factionFallback, reason = BuildTexmodTexturePath(unitDef, texmod, Spring.GetUnitTeam(unitID))
 	local resolved = ResolveTexturePath(candidate)
 	if not resolved and factionFallback then
 		resolved = ResolveTexturePath(factionFallback)
