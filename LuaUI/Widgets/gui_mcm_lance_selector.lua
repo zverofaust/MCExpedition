@@ -126,7 +126,7 @@ local function CreateSelector()
 	local windowWidth = math.floor(math.min(vsx * 0.82, 1180))
 	local windowHeight = math.floor(math.min(vsy * 0.82, 820))
 	local cardWidth = 104
-	local cardHeight = 116
+	local cardHeight = 132
 	local gap = 8
 	local columns = math.max(4, math.floor((windowWidth - 54) / (cardWidth + gap)))
 	local rows = math.ceil(#catalog / columns)
@@ -211,10 +211,10 @@ local function CreateSelector()
 
 		Chili.Image:New{
 			parent = button,
-			x = 4,
-			y = 4,
-			right = 4,
-			bottom = 4,
+			x = 10,
+			y = 6,
+			right = 10,
+			height = 82,
 			file = "#" .. entry.id,
 			keepAspect = true,
 			HitTest = function() return false end,
@@ -223,13 +223,27 @@ local function CreateSelector()
 		Chili.Label:New{
 			parent = button,
 			left = 5,
-			bottom = 4,
+			right = 5,
+			bottom = 22,
+			height = 20,
+			caption = entry.humanName,
+			align = "center",
+			valign = "bottom",
+			fontsize = 11,
+			font = {outline = true, outlineWidth = 2},
+			HitTest = function() return false end,
+		}
+
+		Chili.Label:New{
+			parent = button,
+			left = 5,
+			bottom = 3,
 			width = 64,
-			height = 22,
+			height = 18,
 			caption = entry.variant,
 			align = "left",
 			valign = "bottom",
-			fontsize = 12,
+			fontsize = 11,
 			font = {outline = true, outlineWidth = 2},
 			HitTest = function() return false end,
 		}
