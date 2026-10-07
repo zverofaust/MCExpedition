@@ -241,9 +241,7 @@ local function RestartSelector(allMode)
 	Spring.SendLuaRulesMsg(MSG_PREFIX .. TEXMOD.DEFAULT_TEXMOD)
 	RefreshEffectiveSide(true)
 	if debugAll then
-		Spring.Echo("[MCL TexMods] /texmodall opened the debug selector with every configured paint scheme and reset this team to 'Team'.")
 	else
-		Spring.Echo("[MCL TexMods] /texmod restarted faction paint selection and reset this team to 'Team'.")
 	end
 end
 
@@ -385,9 +383,7 @@ function widget:Initialize()
 	RefreshEffectiveSide(true)
 
 	if factionHandoff.waiting then
-		Spring.Echo("[MCL TexMods] Direct launch detected; waiting for MC:L Faction Change to complete before opening paint selection.")
 	else
-		Spring.Echo("[MCL TexMods] Paint selector waiting for a resolved faction.")
 	end
 end
 
@@ -433,7 +429,6 @@ function widget:Update(dt)
 			stableElapsed = 0
 			pollAccumulator = 0
 			RefreshEffectiveSide(true)
-			Spring.Echo("[MCL TexMods] Faction selection completed; paint selection is now active for the resolved faction.")
 			return
 		end
 	end
@@ -467,7 +462,6 @@ function widget:Update(dt)
 	if menuVisible then
 		selectionElapsed = selectionElapsed + dt
 		if not pendingSelection and selectionElapsed >= SELECTION_TIMEOUT then
-			Spring.Echo("[MCL TexMods] Paint selection timed out after 15 seconds; using Team.")
 			SelectTexmod(TEXMOD.DEFAULT_TEXMOD)
 		end
 		return
@@ -482,7 +476,6 @@ function widget:Update(dt)
 	-- before this point, while lobby/multiplayer setups arrive with a faction set.
 	if debugAll or effectiveSideEntry then
 		if #allowedTexmods <= 1 then
-			Spring.Echo("[MCL TexMods] No alternate texmods for faction '" .. tostring(effectiveSide) .. "'; using Team.")
 			FinishSelector()
 			return
 		end
