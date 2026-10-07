@@ -12,8 +12,9 @@ local M = {
 	BOT_BUDDY_MODOPTION = "texmod_botbuddy",
 	BOT_BUDDY_DEFAULT = false,
 	UNIT_PARAM = "texmod",
-	UNIT_PARAM_ENABLE = "player",
-	UNIT_PARAM_DISABLE = "none",
+	-- Texmods are opt-out: every UnitDef participates unless customParams.texmod
+	-- is explicitly false (legacy "none" remains accepted for compatibility).
+	UNIT_PARAM_DISABLE = "false",
 	RECHECK_FRAMES = 15,
 	TEXMOD_DATA_PATH = "Gamedata/texmods.lua",
 
@@ -340,26 +341,7 @@ function M.BotBuddyTexmodsEnabled()
 end
 
 function M.UnitDefExplicitEligibility(unitDef)
-	if not unitDef then
-		return false
-	end
-	local name = unitDef.name
-	if name and M.FORCE_DISABLE_UNIT_NAMES[name] then
-		return false
-	end
-
-	local cp = unitDef.customParams or {}
-	local mode = Lower(cp[M.UNIT_PARAM])
-	if mode == M.UNIT_PARAM_DISABLE then
-		return false
-	end
-	if name and M.FORCE_ENABLE_UNIT_NAMES[name] then
-		return true
-	end
-	if mode == M.UNIT_PARAM_ENABLE then
-		return true
-	end
-	return Lower(cp.baseclass) == "mech" or cp.dropship ~= nil
+	return unitDef ~= nil and not M.UnitDefExplicitlyDisabled(unitDef)
 end
 
 function M.UnitDefExplicitlyDisabled(unitDef)
@@ -369,8 +351,20 @@ function M.UnitDefExplicitlyDisabled(unitDef)
 	if unitDef.name and M.FORCE_DISABLE_UNIT_NAMES[unitDef.name] then
 		return true
 	end
-	local cp = unitDef.customParams or {}
-	return Lower(cp[M.UNIT_PARAM]) == M.UNIT_PARAM_DISABLE
+	if unitDef.name and M.FORCE_ENABLE_UNIT_NAMES[unitDef.name] then
+		return false
+	end
+
+	local value = (unitDef.customParams or {})[M.UNIT_PARAM]
+	if value == nil then
+		return false
+	end
+	if value == false or value == 0 then
+		return true
+	end
+	local mode = Lower(tostring(value))
+	return mode == "false" or mode == "0" or mode == "no" or mode == "off"
+		or mode == "disabled" or mode == "none"
 end
 
 return M
