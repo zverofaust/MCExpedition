@@ -37,6 +37,7 @@ local campTemplates = VFS.Include("LuaRules/Configs/camp_configs.lua")
 local CAMP_DECAL_ACTION = "mcl_camp_template_decal"
 local TWO_PI = math.pi * 2
 local GAIA_TEAM_ID = Spring.GetGaiaTeamID()
+local sideData = VFS.Include("gamedata/sidedata.lua")
 
 GG.MCMExpeditionSites = GG.MCMExpeditionSites or {}
 GG.MCMExpeditionBases = GG.MCMExpeditionBases or {}
@@ -129,6 +130,28 @@ local function GetEnemyTeam(mercTeamID)
 	end
 
 	return GAIA_TEAM_ID
+end
+
+local function GetSideDefinition(shortName)
+	for i = 1, #sideData do
+		if sideData[i].shortName == shortName then
+			return sideData[i]
+		end
+	end
+end
+
+local function AssignEnemyFaction(teamID)
+	local faction = defs.enemyFactions[math.random(#defs.enemyFactions)]
+	local side = GetSideDefinition(faction)
+	local texmod = side and side.texmods and side.texmods[1] or "Team"
+
+	Spring.SetGameRulesParam("mcm_enemy_team", teamID, {public = true})
+	Spring.SetGameRulesParam("mcm_enemy_faction", faction, {public = true})
+	Spring.SetTeamRulesParam(teamID, "side", faction:lower(), {public = true})
+	Spring.SetTeamRulesParam(teamID, "mcm_faction", faction:lower(), {public = true})
+	Spring.SetTeamRulesParam(teamID, "mcl_texmod", texmod, {public = true})
+
+	return faction, texmod
 end
 
 local function PrepareCandidates(candidates, mercTeamID)
@@ -437,6 +460,7 @@ function gadget:GameFrame(frame)
 	local candidates = PrepareCandidates(LoadCandidates(), mercTeamID)
 	local selected = SelectSites(candidates)
 	local enemyTeamID = GetEnemyTeam(mercTeamID)
+	local enemyFaction, enemyTexmod = AssignEnemyFaction(enemyTeamID)
 
 	for i = 1, #selected do
 		SpawnBase(selected[i], i, enemyTeamID)
@@ -445,6 +469,7 @@ function gadget:GameFrame(frame)
 	Spring.SetGameRulesParam("mcm_expedition_base_count", #selected, {public = true})
 	Spring.SetGameRulesParam("mcm_contract_active", 1, {public = true})
 
+	Spring.Echo("[MCM Expedition] Enemy force:", enemyFaction, "using", enemyTexmod, "paint scheme.")
 	Spring.Echo("[MCM Expedition] Generated", #selected, "strategic bases from", #candidates, "usable authored sites.")
 	gadgetHandler:RemoveGadget(self)
 end
