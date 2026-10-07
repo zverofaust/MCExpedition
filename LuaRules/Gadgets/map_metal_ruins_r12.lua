@@ -207,13 +207,6 @@ local function LoadCampConfigs()
         end
     end
 
-    Spring.Echo(
-        "[Map Debris & Template Camps] Loaded",
-        #CAMP_TEMPLATE_ORDER,
-        "camp templates from",
-        CAMP_CONFIG_PATH
-    )
-
     return
         #CAMP_TEMPLATE_ORDER > 0
 end
@@ -463,12 +456,7 @@ local buildingFeatureNames = {}
 -- Utility
 --------------------------------------------------------------------------------
 
-local function Debug(...)
-    Spring.Echo(
-        "[Map Debris & Template Camps]",
-        ...
-    )
-end
+local function Debug(...)\n    -- Routine diagnostics disabled for production logs.\nend
 
 local function Clamp(value, minimum, maximum)
     if value < minimum then
