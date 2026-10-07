@@ -22,6 +22,7 @@ end
 local LANCE_SIZE = 4
 local MSG_PREFIX = "MCMLANCE|"
 local selected = {}
+local selectionQueue = {}
 local selectedTotal = 0
 local catalog = {}
 local countLabels = {}
@@ -104,9 +105,16 @@ local function ChangeSelection(name, delta)
 			return
 		end
 		selected[name] = current + 1
+		selectionQueue[#selectionQueue + 1] = name
 		selectedTotal = selectedTotal + 1
 	elseif current > 0 then
 		selected[name] = current - 1
+		for i = #selectionQueue, 1, -1 do
+			if selectionQueue[i] == name then
+				table.remove(selectionQueue, i)
+				break
+			end
+		end
 		selectedTotal = selectedTotal - 1
 	end
 
@@ -119,11 +127,8 @@ local function SendOrder()
 	end
 
 	local order = {}
-	for i = 1, #catalog do
-		local entry = catalog[i]
-		for n = 1, selected[entry.name] or 0 do
-			order[#order + 1] = entry.name
-		end
+	for i = 1, #selectionQueue do
+		order[i] = selectionQueue[i]
 	end
 
 	if #order ~= LANCE_SIZE then
