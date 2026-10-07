@@ -31,11 +31,6 @@ local currentFrame = 0
 local calls = {}
 
 local function DelayCall(f, args, delay)
-	if type(f) ~= "function" then
-		local caller = debug.getinfo(2, "Sl")
-		Spring.Echo("[Delay API] NIL CALLBACK SCHEDULED by", caller and caller.short_src or "unknown", "line", caller and caller.currentline or -1, "frame", currentFrame, "delay", delay)
-	end
-
 	if not delay or delay < 1 then
 		delay = 1
 	else
