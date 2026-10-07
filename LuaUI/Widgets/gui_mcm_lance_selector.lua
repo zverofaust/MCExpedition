@@ -234,6 +234,20 @@ local function CreateSelector()
 			HitTest = function() return false end,
 		}
 
+		Chili.Label:New{
+			parent = button,
+			left = 5,
+			bottom = 4,
+			width = 64,
+			height = 22,
+			caption = entry.variant,
+			align = "left",
+			valign = "bottom",
+			fontsize = 12,
+			font = {outline = true, outlineWidth = 2},
+			HitTest = function() return false end,
+		}
+
 		countLabels[entry.name] = Chili.Label:New{
 			parent = button,
 			right = 5,
