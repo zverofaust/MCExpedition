@@ -120,7 +120,6 @@ local function SpawnLance(names)
 	Spring.SetGameRulesParam("mcm_lance_ready", 1, {public = true})
 	Spring.SetGameRulesParam("mcm_lance_size", LANCE_SIZE, {public = true})
 	SendToUnsynced("mcm_lance_deployed", mercTeamID)
-	Spring.Echo("[MCM Lance] Deployed ordered four-Mech Lance for team", mercTeamID)
 	return true
 end
 
