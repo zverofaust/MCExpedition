@@ -30,7 +30,7 @@ local currentFrame = 0
 --frameNumber = {call, call...}
 local calls = {}
 
-local function DelayCall(f, args, delay)
+local function DelayCall(f, args, delay, label)
 	if not delay or delay < 1 then
 		delay = 1
 	else
@@ -45,7 +45,7 @@ local function DelayCall(f, args, delay)
 
 	local frameCalls = calls[targetFrame]
 
-	frameCalls[#frameCalls+1] = {f, args, tostring(f), currentFrame, delay}
+	frameCalls[#frameCalls+1] = {f, args, tostring(f), currentFrame, delay, label or "unlabelled"}
 end
 
 function gadget:GameFrame(n)
@@ -65,7 +65,7 @@ function gadget:GameFrame(n)
 			elseif type(currCall[1]) == "function" then
 				currCall[1](unpack(currCall[2]))
 			else
-				Spring.Echo("[Delay API] ERROR missing callback:", currCall[3], "scheduled", currCall[4], "delay", currCall[5], "target", n)
+				Spring.Echo("[Delay API] ERROR missing callback:", currCall[6], currCall[3], "scheduled", currCall[4], "delay", currCall[5], "target", n)
 			end
 		end
 		--delete
