@@ -46,7 +46,11 @@ local function BuildMercCatalog()
 end
 
 local function GetDeploymentPosition(teamID)
-	local x, _, z = Spring.GetTeamStartPosition(teamID)
+	local x = Spring.GetGameRulesParam("mcm_player_start_x")
+	local z = Spring.GetGameRulesParam("mcm_player_start_z")
+	if not x or not z then
+		x, _, z = Spring.GetTeamStartPosition(teamID)
+	end
 	if not x or x < 0 or not z or z < 0 then
 		x = Game.mapSizeX * 0.5
 		z = Game.mapSizeZ * 0.5
