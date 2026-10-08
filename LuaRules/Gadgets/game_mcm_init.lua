@@ -85,6 +85,7 @@ local function SpawnPlayerBeacon()
 
 	Spring.SetUnitRulesParam(beaconID, "mcm_player_beacon", 1, {public = true})
 	Spring.SetGameRulesParam("mcm_player_beacon", beaconID, {public = true})
+	Spring.PlaySoundFile("bb_startup_all_systems_nominal", 1, "ui")
 end
 
 local function FindMercTeam()
