@@ -22,6 +22,16 @@ local beacon = Unit:New{
 	movementClass       = "LARGEMECH",
 	canselfdestruct     = false,
 
+	-- Keep the same indexed CEG layout as the MCL beacon script:
+	-- SFX.CEG = reentry trail, +1 = impact, +2 = deployed blink.
+	sfxtypes = {
+		explosiongenerators = {
+			"custom:reentry_fx",
+			"custom:ROACHPLOSION",
+			"custom:beacon",
+		},
+	},
+
 	customparams = {
 		ignoreatbeacon = true,
 		invincible = true,
