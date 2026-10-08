@@ -144,7 +144,7 @@ local decalDefs = {
 		},
 	},
 	decal_beacon_zone = {
-		alias	= 3,
+		alias	= 5,
 		alpha	= 0.2,
 	},
 	decal_foot = {
