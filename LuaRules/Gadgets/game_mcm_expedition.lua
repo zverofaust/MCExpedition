@@ -155,7 +155,11 @@ local function AssignEnemyFaction(teamID)
 end
 
 local function PrepareCandidates(candidates, mercTeamID)
-	local playerX, _, playerZ = Spring.GetTeamStartPosition(mercTeamID)
+	local playerX = Spring.GetGameRulesParam("mcm_player_start_x")
+	local playerZ = Spring.GetGameRulesParam("mcm_player_start_z")
+	if not playerX or not playerZ then
+		playerX, _, playerZ = Spring.GetTeamStartPosition(mercTeamID)
+	end
 	if not playerX or playerX < 0 or not playerZ or playerZ < 0 then
 		playerX = Game.mapSizeX * 0.5
 		playerZ = Game.mapSizeZ * 0.5
