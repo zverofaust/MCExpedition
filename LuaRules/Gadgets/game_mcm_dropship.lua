@@ -45,6 +45,7 @@ local function RollBack()
 		Spring.DestroyUnit(activeDropship, false, true)
 	end
 	activeDropship = nil
+	Spring.SetGameRulesParam("mcm_lance_inbound", 0, {public = true})
 end
 
 local function InsertionComplete()
@@ -87,6 +88,7 @@ function GG.MCMDeployLance(unitDefIDs)
 
 	Spring.SetUnitRulesParam(activeDropship, "mcm_insertion_dropship", 1, {public = true})
 	Spring.SetGameRulesParam("mcm_insertion_dropship", activeDropship, {public = true})
+	Spring.SetGameRulesParam("mcm_lance_inbound", 1, {public = true})
 
 	local env = Spring.UnitScript.GetScriptEnv(activeDropship)
 	if not env or not env.LoadCargo then
@@ -110,7 +112,6 @@ function GG.MCMDeployLance(unitDefIDs)
 	end
 
 	Spring.SetGameRulesParam("mcm_lance_size", LANCE_SIZE, {public = true})
-	Spring.SetGameRulesParam("mcm_lance_inbound", 1, {public = true})
 	return true
 end
 
