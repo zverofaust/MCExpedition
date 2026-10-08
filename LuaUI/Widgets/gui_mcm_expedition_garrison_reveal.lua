@@ -27,7 +27,11 @@ local PULSE_INTERVAL = 90
 local PULSE_DURATION = 60
 local PULSE_COUNT = 4
 local START_RADIUS = 120
-local END_RADIUS = 900
+local END_RADIUS = {
+	light = 650,
+	moderate = 900,
+	heavy = 1150,
+}
 local SEGMENTS = 96
 
 local sites = {}
@@ -46,7 +50,11 @@ local function LoadSites()
 		local x = Spring.GetGameRulesParam("expedition_garrison_" .. i .. "_x")
 		local z = Spring.GetGameRulesParam("expedition_garrison_" .. i .. "_z")
 		if x and z then
-			sites[#sites + 1] = {x = x, z = z}
+			sites[#sites + 1] = {
+				x = x,
+				z = z,
+				strength = Spring.GetGameRulesParam("expedition_garrison_" .. i .. "_strength") or "moderate",
+			}
 		end
 	end
 
@@ -105,9 +113,10 @@ function widget:DrawScreen()
 		local age = elapsed - pulse * PULSE_INTERVAL
 		if age >= 0 and age <= PULSE_DURATION then
 			local progress = age / PULSE_DURATION
-			local radius = START_RADIUS + (END_RADIUS - START_RADIUS) * progress
 			local alpha = 0.95 * (1 - progress)
 			for i = 1, #sites do
+				local endRadius = END_RADIUS[sites[i].strength] or END_RADIUS.moderate
+				local radius = START_RADIUS + (endRadius - START_RADIUS) * progress
 				DrawProjectedRing(sites[i], radius, alpha)
 			end
 		end
