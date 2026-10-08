@@ -1,10 +1,10 @@
--- MCM Combat AI r2: limited vehicle tactical movement prototype.
+-- MCM Combat AI r3: limited vehicle tactical movement prototype.
 -- Authors: zvero + ChatGPT
 -- Scope: Mars, Pegasus and Savannah Master only; explicit unqueued unit Attack only.
 -- Native Move/Stop/Patrol/Fight and manually set targets retain priority.
 function gadget:GetInfo()
     return {
-        name = "MCM Combat AI r2",
+        name = "MCM Combat AI r3",
         desc = "Experimental weapon-aware vehicle engagement manoeuvres",
         author = "zvero + ChatGPT",
         date = "2026-10-08",
@@ -19,13 +19,13 @@ if not gadgetHandler:IsSyncedCode() then return false end
 local sqrt, abs, max, min = math.sqrt, math.abs, math.max, math.min
 local sin, cos, atan2 = math.sin, math.cos, math.atan2
 local UPDATE = 15
-local states = {}
+local states = {}\nlocal diagnostics = {}\nlocal function Debug(unitID, msg)\n    if diagnostics[unitID] ~= msg then\n        diagnostics[unitID] = msg\n        Spring.Echo("[MCM Combat AI r3] unit " .. unitID .. ": " .. msg)\n    end\nend
 local eligible = {}
 
 for defID, ud in pairs(UnitDefs) do
     local cp = ud.customParams or {}
     local name = (ud.name or ""):lower()
-    if cp.baseclass == "vehicle" and ud.canMove and ud.canAttack and not ud.canFly then
+    if cp.baseclass == "vehicle" and ud.canMove and not ud.canFly then
         if name == "mars" then eligible[defID] = "hold"
         elseif name == "pegasus" then eligible[defID] = "circle"
         elseif name == "savannah master" then eligible[defID] = "pass" end
@@ -67,9 +67,8 @@ local function EffectiveRange(unitID, defID, targetID)
     local entries, total = {}, 0
     for slot, mount in ipairs(UnitDefs[defID].weapons or {}) do
         local wd = WeaponDefs[mount.weaponDef]
-        if wd and wd.range and wd.range > 0 and not wd.manualFire
-            and Spring.GetUnitWeaponTestTarget(unitID, slot, targetID) then
-            local weight = max(1, (wd.damages and wd.damages[0]) or 1)
+        if wd and wd.range and wd.range > 0 and not wd.manualFire then
+            local weight = max(1, (wd.damages and (wd.damages[0] or wd.damages[1])) or 1)
             entries[#entries + 1] = {range = wd.range, weight = weight}
             total = total + weight
         end
@@ -113,11 +112,11 @@ function gadget:AllowCommand(unitID, defID, teamID, cmdID, params, opts)
                 side = (unitID % 2 == 0) and 1 or -1,
                 passX = nil, passZ = nil,
             }
-            -- Consume native Attack so it cannot override manoeuvre goals.
+            Debug(unitID, "acquired " .. eligible[defID] .. " target " .. params[1] .. " at range " .. math.floor(range))\n            -- Consume native Attack so it cannot override manoeuvre goals.
             return false
         end
     end
-    if cmdID == CMD.MOVE or cmdID == CMD.STOP or cmdID == CMD.ATTACK
+    if cmdID == CMD.ATTACK and params and #params == 1 then\n        Debug(unitID, "Attack passed to engine (movestate/LOS/target/manual-target gate)")\n    end\n    if cmdID == CMD.MOVE or cmdID == CMD.STOP or cmdID == CMD.ATTACK
         or cmdID == CMD.FIGHT or cmdID == CMD.PATROL or cmdID == CMD.GUARD
         or cmdID == CMD.LOAD_ONTO or cmdID == CMD.LOAD_UNITS then
         Clear(unitID, true)
@@ -139,7 +138,7 @@ function gadget:GameFrame(frame)
                 local distance, dx, dz = Distance(x, z, tx, tz)
                 local range = state.range
                 local nx, nz = dx / max(distance, 1), dz / max(distance, 1)
-                local profile = state.profile
+                local profile = state.profile\n                Debug(unitID, "executing " .. profile .. " phase " .. state.phase)
 
                 if profile == "hold" then
                     -- Mars: enter preferred range, then hold; reverse only when
