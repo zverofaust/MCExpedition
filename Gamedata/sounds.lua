@@ -149,8 +149,8 @@ local Sounds = {
 			gainmod = 0.35,
 			pitchmod = 0.1,
 			priority = -0.1,
-			maxdist = 5000,
-			rolloff = 10.0,
+			maxdist = 18000,
+			rolloff = 0.2,
 			--looptime = 10000, -- 10s, 5s x2
 		},
 		NavBeacon_Pop = {
