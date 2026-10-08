@@ -19,7 +19,14 @@ if not gadgetHandler:IsSyncedCode() then return false end
 local sqrt, abs, max, min = math.sqrt, math.abs, math.max, math.min
 local sin, cos, atan2 = math.sin, math.cos, math.atan2
 local UPDATE = 15
-local states = {}\nlocal diagnostics = {}\nlocal function Debug(unitID, msg)\n    if diagnostics[unitID] ~= msg then\n        diagnostics[unitID] = msg\n        Spring.Echo("[MCM Combat AI r3] unit " .. unitID .. ": " .. msg)\n    end\nend
+local states = {}
+local diagnostics = {}
+local function Debug(unitID, msg)
+    if diagnostics[unitID] ~= msg then
+        diagnostics[unitID] = msg
+        Spring.Echo("[MCM Combat AI r3] unit " .. unitID .. ": " .. msg)
+    end
+end
 local eligible = {}
 
 for defID, ud in pairs(UnitDefs) do
@@ -112,11 +119,15 @@ function gadget:AllowCommand(unitID, defID, teamID, cmdID, params, opts)
                 side = (unitID % 2 == 0) and 1 or -1,
                 passX = nil, passZ = nil,
             }
-            Debug(unitID, "acquired " .. eligible[defID] .. " target " .. params[1] .. " at range " .. math.floor(range))\n            -- Consume native Attack so it cannot override manoeuvre goals.
+            Debug(unitID, "acquired " .. eligible[defID] .. " target " .. params[1] .. " at range " .. math.floor(range))
+            -- Consume native Attack so it cannot override manoeuvre goals.
             return false
         end
     end
-    if cmdID == CMD.ATTACK and params and #params == 1 then\n        Debug(unitID, "Attack passed to engine (movestate/LOS/target/manual-target gate)")\n    end\n    if cmdID == CMD.MOVE or cmdID == CMD.STOP or cmdID == CMD.ATTACK
+    if cmdID == CMD.ATTACK and params and #params == 1 then
+        Debug(unitID, "Attack passed to engine (movestate/LOS/target/manual-target gate)")
+    end
+    if cmdID == CMD.MOVE or cmdID == CMD.STOP or cmdID == CMD.ATTACK
         or cmdID == CMD.FIGHT or cmdID == CMD.PATROL or cmdID == CMD.GUARD
         or cmdID == CMD.LOAD_ONTO or cmdID == CMD.LOAD_UNITS then
         Clear(unitID, true)
@@ -138,7 +149,8 @@ function gadget:GameFrame(frame)
                 local distance, dx, dz = Distance(x, z, tx, tz)
                 local range = state.range
                 local nx, nz = dx / max(distance, 1), dz / max(distance, 1)
-                local profile = state.profile\n                Debug(unitID, "executing " .. profile .. " phase " .. state.phase)
+                local profile = state.profile
+                Debug(unitID, "executing " .. profile .. " phase " .. state.phase)
 
                 if profile == "hold" then
                     -- Mars: enter preferred range, then hold; reverse only when
