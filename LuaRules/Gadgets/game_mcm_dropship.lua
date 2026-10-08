@@ -32,6 +32,7 @@ end
 local LANCE_SIZE = 4
 local activeDropship
 local lanceUnits = {}
+local pendingUnitDefIDs
 
 local function RollBack()
 	for i = 1, #lanceUnits do
@@ -64,9 +65,9 @@ local function InsertionComplete()
 	SendToUnsynced("mcm_lance_deployed", Spring.GetGameRulesParam("mcm_merc_team"))
 end
 
-function GG.MCMDeployLance(unitDefIDs)
-	if activeDropship or #lanceUnits > 0 or type(unitDefIDs) ~= "table" or #unitDefIDs ~= LANCE_SIZE then
-		return false
+local function StartInsertion()
+	if not pendingUnitDefIDs or activeDropship then
+		return
 	end
 
 	local teamID = Spring.GetGameRulesParam("mcm_merc_team")
@@ -76,33 +77,38 @@ function GG.MCMDeployLance(unitDefIDs)
 	local dropshipDef = UnitDefNames.mc_dropship_leopard
 	if not teamID or not beaconID or not x or not z or not dropshipDef then
 		Spring.Echo("[MCM Dropship] Missing Merc team, Nav Beacon, insertion point or mc_dropship_leopard UnitDef.")
-		return false
+		pendingUnitDefIDs = nil
+		RollBack()
+		return
 	end
 
 	local y = Spring.GetGroundHeight(x, z)
 	activeDropship = Spring.CreateUnit(dropshipDef.id, x, y, z, "s", teamID)
 	if not activeDropship then
 		Spring.Echo("[MCM Dropship] Failed to create insertion Leopard.")
-		return false
+		pendingUnitDefIDs = nil
+		RollBack()
+		return
 	end
 
 	Spring.SetUnitRulesParam(activeDropship, "mcm_insertion_dropship", 1, {public = true})
 	Spring.SetGameRulesParam("mcm_insertion_dropship", activeDropship, {public = true})
-	Spring.SetGameRulesParam("mcm_lance_inbound", 1, {public = true})
 
 	local env = Spring.UnitScript.GetScriptEnv(activeDropship)
 	if not env or not env.LoadCargo then
 		Spring.Echo("[MCM Dropship] Leopard LoadCargo interface unavailable.")
+		pendingUnitDefIDs = nil
 		RollBack()
-		return false
+		return
 	end
 
 	for i = 1, LANCE_SIZE do
-		local unitID = Spring.CreateUnit(unitDefIDs[i], x, y, z, "s", teamID, false, false)
+		local unitID = Spring.CreateUnit(pendingUnitDefIDs[i], x, y, z, "s", teamID, false, false)
 		if not unitID then
 			Spring.Echo("[MCM Dropship] Failed to create Lance cargo; rolling back insertion.")
+			pendingUnitDefIDs = nil
 			RollBack()
-			return false
+			return
 		end
 
 		lanceUnits[#lanceUnits + 1] = unitID
@@ -111,11 +117,32 @@ function GG.MCMDeployLance(unitDefIDs)
 		Spring.UnitScript.CallAsUnit(activeDropship, env.LoadCargo, unitID, beaconID, beaconID)
 	end
 
+	pendingUnitDefIDs = nil
 	Spring.SetGameRulesParam("mcm_lance_size", LANCE_SIZE, {public = true})
+end
+
+function GG.MCMDeployLance(unitDefIDs)
+	if activeDropship or pendingUnitDefIDs or #lanceUnits > 0 or type(unitDefIDs) ~= "table" or #unitDefIDs ~= LANCE_SIZE then
+		return false
+	end
+
+	pendingUnitDefIDs = {}
+	for i = 1, LANCE_SIZE do
+		pendingUnitDefIDs[i] = unitDefIDs[i]
+	end
+	Spring.SetGameRulesParam("mcm_lance_inbound", 1, {public = true})
 	return true
 end
 
 function gadget:GameFrame(frame)
+	if pendingUnitDefIDs and not activeDropship then
+		local beaconID = Spring.GetGameRulesParam("mcm_player_beacon")
+		if beaconID and Spring.ValidUnitID(beaconID)
+				and Spring.GetUnitRulesParam(beaconID, "mcm_navbeacon_deployed") == 1 then
+			StartInsertion()
+		end
+	end
+
 	if activeDropship and Spring.GetGameRulesParam("mcm_lance_ready") ~= 1 then
 		InsertionComplete()
 	end
