@@ -110,6 +110,7 @@ function GG.MCMDeployLance(unitDefIDs)
 	end
 
 	Spring.SetGameRulesParam("mcm_lance_size", LANCE_SIZE, {public = true})
+	Spring.SetGameRulesParam("mcm_lance_inbound", 1, {public = true})
 	return true
 end
 
