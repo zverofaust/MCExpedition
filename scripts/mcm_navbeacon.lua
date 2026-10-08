@@ -26,6 +26,7 @@ local DROP_HEIGHT = 12000
 local X, _, Z = Spring.GetUnitPosition(unitID)
 local GY = Spring.GetGroundHeight(X, Z)
 local stage
+local teamID = Spring.GetUnitTeam(unitID)
 
 Spring.SetUnitNanoPieces(unitID, {base})
 
@@ -63,7 +64,7 @@ local function WaitForImpact()
 	Spring.SetUnitNoSelect(unitID, false)
 	GG.RemoveGrassSquare(X, Z, 64)
 	GG.SpawnDecal("decal_beacon", X, Z)
-	GG.SpawnDecal("decal_beacon_zone", X, Z, 460)
+	GG.SpawnDecal("decal_beacon_zone", X, Z, 460, nil, nil, nil, teamID)
 	Spring.SetUnitRulesParam(unitID, "mcm_navbeacon_impact", 1, {public = true})
 end
 
