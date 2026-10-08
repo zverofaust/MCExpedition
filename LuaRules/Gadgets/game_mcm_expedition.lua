@@ -37,6 +37,11 @@ local campTemplates = VFS.Include("LuaRules/Configs/camp_configs.lua")
 local CAMP_DECAL_ACTION = "mcl_camp_template_decal"
 local TWO_PI = math.pi * 2
 local GAIA_TEAM_ID = Spring.GetGaiaTeamID()
+local GAME_SPEED = Game.gameSpeed or 30
+local ESCALATION_DURATION_SECONDS = 20 * 60
+local ESCALATION_DURATION_FRAMES = ESCALATION_DURATION_SECONDS * GAME_SPEED
+local expeditionActive = false
+local expeditionStartFrame
 local sideData = VFS.Include("gamedata/sidedata.lua")
 
 GG.MCMExpeditionSites = GG.MCMExpeditionSites or {}
@@ -563,7 +568,57 @@ local function SpawnBase(site, baseNumber, teamID)
 	GG.MCMExpeditionSites[#GG.MCMExpeditionSites + 1] = base
 end
 
+local function PublishGarrisonReveal(frame)
+	local count = 0
+	for i = 1, #GG.MCMExpeditionBases do
+		local base = GG.MCMExpeditionBases[i]
+		if base and base.x and base.z then
+			count = count + 1
+			Spring.SetGameRulesParam("expedition_garrison_" .. count .. "_x", base.x, {public = true})
+			Spring.SetGameRulesParam("expedition_garrison_" .. count .. "_z", base.z, {public = true})
+		end
+	end
+	Spring.SetGameRulesParam("expedition_garrison_count", count, {public = true})
+	Spring.SetGameRulesParam("expedition_garrison_reveal_frame", frame, {public = true})
+end
+
+local function StartEscalation(frame)
+	expeditionStartFrame = frame
+	expeditionActive = true
+	Spring.SetGameRulesParam("EXPEDITION_ESCALATION_FLOOR", 0, {public = true})
+	Spring.SetGameRulesParam("EXPEDITION_ESCALATION_LEVEL", 0, {public = true})
+	Spring.SetGameRulesParam("EXPEDITION_ESCALATION_START_FRAME", frame, {public = true})
+end
+
+local function UpdateEscalation(frame)
+	if not expeditionActive or not expeditionStartFrame then
+		return
+	end
+
+	local elapsed = math.max(0, frame - expeditionStartFrame)
+	local floor = math.min(100, elapsed * 100 / ESCALATION_DURATION_FRAMES)
+	Spring.SetGameRulesParam("EXPEDITION_ESCALATION_FLOOR", floor, {public = true})
+
+	local level = Spring.GetGameRulesParam("EXPEDITION_ESCALATION_LEVEL") or 0
+	if level < floor then
+		Spring.SetGameRulesParam("EXPEDITION_ESCALATION_LEVEL", floor, {public = true})
+	end
+end
+
+function gadget:Initialize()
+	Spring.SetGameRulesParam("EXPEDITION_ESCALATION_FLOOR", 0, {public = true})
+	Spring.SetGameRulesParam("EXPEDITION_ESCALATION_LEVEL", 0, {public = true})
+	Spring.SetGameRulesParam("EXPEDITION_ESCALATION_START_FRAME", -1, {public = true})
+	Spring.SetGameRulesParam("expedition_garrison_count", 0, {public = true})
+	Spring.SetGameRulesParam("expedition_garrison_reveal_frame", -1, {public = true})
+end
+
 function gadget:GameFrame(frame)
+	if expeditionActive then
+		UpdateEscalation(frame)
+		return
+	end
+
 	if frame < 10 or Spring.GetGameRulesParam("mcm_lance_ready") ~= 1 then
 		return
 	end
@@ -586,7 +641,7 @@ function gadget:GameFrame(frame)
 	end
 
 	Spring.SetGameRulesParam("mcm_expedition_base_count", #selected, {public = true})
+	PublishGarrisonReveal(frame)
 	Spring.SetGameRulesParam("mcm_contract_active", 1, {public = true})
-
-	gadgetHandler:RemoveGadget(self)
+	StartEscalation(frame)
 end
