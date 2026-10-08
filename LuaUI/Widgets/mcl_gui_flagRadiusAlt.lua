@@ -6,7 +6,7 @@ function widget:GetInfo()
     date      = "28 August 2009",
     license   = "GNU GPL v2",
     layer     = 5,
-    enabled   = true  -- shared MCL/MCM beacon range renderer
+    enabled   = true
   }
 end
 
@@ -39,7 +39,6 @@ local sin, cos = math.sin, math.cos
 -- constants
 local FLAG_DEF_ID = {
 	UnitDefNames["beacon"].id,
-	UnitDefNames["mcm_navbeacon"].id,
 	--[[UnitDefNames["outpost_vehicledepot"].id,
 	UnitDefNames["outpost_c3center"].id, 
 	UnitDefNames["outpost_garrison"].id, 
