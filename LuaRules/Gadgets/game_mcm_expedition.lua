@@ -42,6 +42,10 @@ local ESCALATION_DURATION_SECONDS = 20 * 60
 local ESCALATION_DURATION_FRAMES = ESCALATION_DURATION_SECONDS * GAME_SPEED
 local expeditionActive = false
 local expeditionStartFrame
+local battlefieldPlanned = false
+local battlefieldPopulated = false
+local plannedBases = {}
+local plannedEncounters = {}
 local sideData = VFS.Include("gamedata/sidedata.lua")
 
 GG.MCMExpeditionSites = GG.MCMExpeditionSites or {}
@@ -93,9 +97,14 @@ local function LoadCandidates()
 				end
 			end
 
-			-- Camps are reserved for future transient encounters and minor POIs.
+			if type(camps) == "table" then
+				for _, site in pairs(camps) do
+					AddCandidate(candidates, site.x, site.z, "camp")
+				end
+			end
+
 			-- Established garrison bases use only authored Beacon/resource sites
-			-- and map start positions.
+			-- and map starts. Camps remain available to transient encounters.
 			if type(starts) == "table" then
 				for _, site in pairs(starts) do
 					AddCandidate(candidates, site.x, site.z, "start")
@@ -238,7 +247,7 @@ end
 local function SelectBandSites(candidates, band, count, selected)
 	local pool = {}
 	for i = 1, #candidates do
-		if candidates[i].band == band then
+		if candidates[i].band == band and candidates[i].source ~= "camp" then
 			pool[#pool + 1] = candidates[i]
 		end
 	end
@@ -285,7 +294,7 @@ local function SelectSites(candidates)
 					break
 				end
 			end
-			if not used then
+			if not used and candidates[i].source ~= "camp" then
 				remaining[#remaining + 1] = candidates[i]
 			end
 		end
@@ -301,6 +310,44 @@ local function SelectSites(candidates)
 				if #selected >= minimum then
 					break
 				end
+			end
+		end
+	end
+
+	return selected
+end
+
+local function SelectEncounterSites(candidates, bases)
+	local selected = {}
+	local occupied = {}
+	for i = 1, #bases do
+		occupied[#occupied + 1] = bases[i]
+	end
+
+	local pool = {}
+	for i = 1, #candidates do
+		local used = false
+		for j = 1, #bases do
+			if candidates[i] == bases[j] then
+				used = true
+				break
+			end
+		end
+		if not used then
+			pool[#pool + 1] = candidates[i]
+		end
+	end
+	Shuffle(pool)
+
+	local target = math.random(defs.encounterTargets.min, defs.encounterTargets.max)
+	for i = 1, #pool do
+		local site = pool[i]
+		if SiteIsClear(site, occupied, defs.minimumSiteSpacing) then
+			site.kind = "encounter"
+			selected[#selected + 1] = site
+			occupied[#occupied + 1] = site
+			if #selected >= target then
+				break
 			end
 		end
 	end
@@ -402,6 +449,30 @@ local function SelectVehicleForce(strengthName, pools, forceLevel)
 			assaultCount = assaultCount + 1
 		end
 	end
+	return force
+end
+
+local function SelectEncounterVehicleForce(site, pools, forceLevel)
+	local profile = defs.encounterForces[site.band] or defs.encounterForces.near
+	local force = {}
+	local count = math.random(profile.count.min, profile.count.max)
+	local assaultCount = 0
+
+	for i = 1, count do
+		local className = PickVehicleClass(profile, pools, 999, assaultCount, forceLevel)
+		if not className then
+			break
+		end
+		local pool = pools[className]
+		force[#force + 1] = {
+			name = pool[math.random(#pool)],
+			class = className,
+		}
+		if className == "assault" then
+			assaultCount = assaultCount + 1
+		end
+	end
+
 	return force
 end
 
@@ -568,17 +639,48 @@ local function SpawnBase(site, baseNumber, teamID)
 	GG.MCMExpeditionSites[#GG.MCMExpeditionSites + 1] = base
 end
 
-local function PublishGarrisonReveal(frame)
-	local count = 0
-	for i = 1, #GG.MCMExpeditionBases do
-		local base = GG.MCMExpeditionBases[i]
-		if base and base.x and base.z then
-			count = count + 1
-			Spring.SetGameRulesParam("expedition_garrison_" .. count .. "_x", base.x, {public = true})
-			Spring.SetGameRulesParam("expedition_garrison_" .. count .. "_z", base.z, {public = true})
+local function SpawnEncounter(site, encounterNumber, teamID, faction, pools, forceLevel)
+	local encounter = {
+		id = encounterNumber,
+		kind = "encounter",
+		x = site.x,
+		z = site.z,
+		source = site.source,
+		band = site.band,
+		teamID = teamID,
+		faction = faction,
+		units = {},
+	}
+
+	local force = SelectEncounterVehicleForce(site, pools, forceLevel)
+	local rotation = math.random() * TWO_PI
+	local radius = defs.vehicleForces.spawnSpacing * 1.35
+	for i = 1, #force do
+		local angle = rotation + (i - 1) * TWO_PI / math.max(#force, 1)
+		local x = site.x + math.sin(angle) * radius
+		local z = site.z + math.cos(angle) * radius
+		if x > 0 and x < Game.mapSizeX and z > 0 and z < Game.mapSizeZ and Spring.GetGroundHeight(x, z) >= 0 then
+			local facing = math.floor(((angle + math.pi) % TWO_PI) / (math.pi * 0.5) + 0.5) % 4
+			local unitID = SpawnUnit(force[i].name, x, z, facing, teamID)
+			if unitID then
+				encounter.units[#encounter.units + 1] = unitID
+				Spring.SetUnitRulesParam(unitID, "mcm_expedition_encounter", encounterNumber, {public = true})
+				Spring.SetUnitRulesParam(unitID, "mcm_vehicle_class", force[i].class, {public = true})
+			end
 		end
 	end
-	Spring.SetGameRulesParam("expedition_garrison_count", count, {public = true})
+
+	GG.MCMExpeditionSites[#GG.MCMExpeditionSites + 1] = encounter
+end
+
+local function PublishGarrisonReveal(frame)
+	for i = 1, #plannedBases do
+		local base = plannedBases[i]
+		Spring.SetGameRulesParam("expedition_garrison_" .. i .. "_x", base.x, {public = true})
+		Spring.SetGameRulesParam("expedition_garrison_" .. i .. "_z", base.z, {public = true})
+		Spring.SetGameRulesParam("expedition_garrison_" .. i .. "_strength", base.strength, {public = true})
+	end
+	Spring.SetGameRulesParam("expedition_garrison_count", #plannedBases, {public = true})
 	Spring.SetGameRulesParam("expedition_garrison_reveal_frame", frame, {public = true})
 end
 
@@ -616,32 +718,47 @@ end
 function gadget:GameFrame(frame)
 	if expeditionActive then
 		UpdateEscalation(frame)
-		return
 	end
 
-	if frame < 10 or Spring.GetGameRulesParam("mcm_lance_ready") ~= 1 then
+	if not battlefieldPlanned then
+		local mercTeamID = GetMercTeam()
+		local playerX = Spring.GetGameRulesParam("mcm_player_start_x")
+		local playerZ = Spring.GetGameRulesParam("mcm_player_start_z")
+		if mercTeamID and playerX and playerZ then
+			local candidates = PrepareCandidates(LoadCandidates(), mercTeamID)
+			plannedBases = SelectSites(candidates)
+			plannedEncounters = SelectEncounterSites(candidates, plannedBases)
+			battlefieldPlanned = true
+
+			Spring.SetGameRulesParam("mcm_expedition_base_count", #plannedBases, {public = true})
+			Spring.SetGameRulesParam("mcm_expedition_encounter_count", #plannedEncounters, {public = true})
+			PublishGarrisonReveal(frame)
+		end
+	end
+
+	if battlefieldPopulated or not battlefieldPlanned or Spring.GetGameRulesParam("mcm_lance_ready") ~= 1 then
 		return
 	end
 
 	local mercTeamID = GetMercTeam()
 	if not mercTeamID then
-		Spring.Echo("[MCM Expedition] No Merc team available; battlefield generation skipped.")
-		gadgetHandler:RemoveGadget(self)
+		Spring.Echo("[MCM Expedition] No Merc team available; battlefield population skipped.")
 		return
 	end
 
-	local forceLevel, lanceTonnage = GetLanceForceLevel(mercTeamID)
-	local candidates = PrepareCandidates(LoadCandidates(), mercTeamID)
-	local selected = SelectSites(candidates)
+	local forceLevel = GetLanceForceLevel(mercTeamID)
 	local enemyTeamID = GetEnemyTeam(mercTeamID)
-	local enemyFaction, enemyTexmod = AssignEnemyFaction(enemyTeamID)
+	local enemyFaction = AssignEnemyFaction(enemyTeamID)
+	local vehiclePools = BuildVehiclePools(enemyFaction)
 
-	for i = 1, #selected do
-		SpawnBase(selected[i], i, enemyTeamID)
+	for i = 1, #plannedBases do
+		SpawnBase(plannedBases[i], i, enemyTeamID)
+	end
+	for i = 1, #plannedEncounters do
+		SpawnEncounter(plannedEncounters[i], i, enemyTeamID, enemyFaction, vehiclePools, forceLevel)
 	end
 
-	Spring.SetGameRulesParam("mcm_expedition_base_count", #selected, {public = true})
-	PublishGarrisonReveal(frame)
+	battlefieldPopulated = true
 	Spring.SetGameRulesParam("mcm_contract_active", 1, {public = true})
 	StartEscalation(frame)
 end
