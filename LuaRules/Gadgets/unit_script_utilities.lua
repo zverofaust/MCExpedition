@@ -93,11 +93,11 @@ end
 GG.GetUnitDistanceToPoint = GetUnitDistanceToPoint
 
 
-function SpawnDecal(decalName, x, z, size, angle, delay, duration)
+function SpawnDecal(decalName, x, z, size, angle, delay, duration, teamID)
 	if delay then
-		GG.Delay.DelayCall(SpawnDecal, {decalName, x, z, size, angle, duration}, delay)
+		GG.Delay.DelayCall(SpawnDecal, {decalName, x, z, size, angle, nil, duration, teamID}, delay)
 	else
-		SendToUnsynced("SPAWNDECAL", decalName, x, z, size, angle, duration)
+		SendToUnsynced("SPAWNDECAL", decalName, x, z, size, angle, duration, teamID)
 	end
 end
 GG.SpawnDecal = SpawnDecal
@@ -186,7 +186,7 @@ local decalDefs = {
 
 local killCodes = {} -- killCode = {decalID1, ...}
 
-local function SpawnDecal(eventID, decalName, x, z, decalSize, angle, killCode)
+local function SpawnDecal(eventID, decalName, x, z, decalSize, angle, killCode, teamID)
 	--Spring.Echo("UNSYNCED SpawnDecal", eventID, decalName, x, z, decalSize)
 	local decalID = Spring.CreateGroundDecal()
 	killCode = killCode or decalName
@@ -202,6 +202,12 @@ local function SpawnDecal(eventID, decalName, x, z, decalSize, angle, killCode)
 		Spring.SetGroundDecalPosAndDims(decalID, x, z, decalSize, decalSize)
 		if decalInfo.alpha then
 			Spring.SetGroundDecalAlpha(decalID, decalInfo.alpha, 0.0)
+		end
+		if teamID then
+			local r, g, b = Spring.GetTeamColor(teamID)
+			if r then
+				Spring.SetGroundDecalTint(decalID, r, g, b, 1)
+			end
 		end
 		if angle then
 			Spring.SetGroundDecalRotation(decalID, angle)
