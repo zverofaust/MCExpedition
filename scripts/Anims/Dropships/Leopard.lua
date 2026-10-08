@@ -2,6 +2,7 @@
 local body = piece ("hull")
 local cargoDoor1, cargoDoor2 = piece("cargodoor1", "cargodoor2")
 local attachment = piece("attachment")
+local isMCM = Game.modShortName == "MCM"
 
 function WeaponCanFire(weaponID)
 	if missileWeaponIDs[weaponID] then return stage == 3 end
@@ -210,9 +211,11 @@ function TakeOff(bugout)
 	WaitForTurn(body, x_axis)
 	Turn(body, x_axis, math.rad(-80), math.rad(5))
 	WaitForTurn(body, x_axis)
-	local DZID = GG.teamDropZones[teamID]
-	env = Spring.UnitScript.GetScriptEnv(DZID)
-	if env then env.ClearTheDeck(false) end
+	if not isMCM and GG.teamDropZones then
+		local DZID = GG.teamDropZones[teamID]
+		env = DZID and Spring.UnitScript.GetScriptEnv(DZID)
+		if env then env.ClearTheDeck(false) end
+	end
 	Spring.MoveCtrl.SetGravity(unitID, -6 * GRAVITY)
 	stage = 5
 	PlaySound("dropship_burn")
@@ -326,9 +329,11 @@ function Drop()
 		end
 		Sleep(100)
 	end
-	local DZID = GG.teamDropZones[teamID]
-	env = Spring.UnitScript.GetScriptEnv(DZID)
-	if env then env.ClearTheDeck(true) end
+	if not isMCM and GG.teamDropZones then
+		local DZID = GG.teamDropZones[teamID]
+		env = DZID and Spring.UnitScript.GetScriptEnv(DZID)
+		if env then env.ClearTheDeck(true) end
+	end
 	PlaySound("dropship_rumble")
 	-- Descent complete, move over the target
 	StartThread(LandingGearDown)
