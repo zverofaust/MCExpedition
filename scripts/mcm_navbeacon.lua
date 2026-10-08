@@ -31,7 +31,7 @@ Spring.SetUnitNanoPieces(unitID, {base})
 
 local function Effects()
 	while stage == 3 do
-		GG.EmitSfxName(unitID, rocket, "blacksmoke")
+		EmitSfx(rocket, SFX.CEG)
 		Sleep(5)
 	end
 
@@ -45,7 +45,7 @@ local function Effects()
 	while stage == 0 do
 		Sleep(1000)
 		PlaySound("NavBeacon_Beep")
-		GG.EmitSfxName(unitID, blink, "beacon")
+		EmitSfx(blink, SFX.CEG + 2)
 	end
 end
 
@@ -61,9 +61,9 @@ local function WaitForImpact()
 
 	Spring.MoveCtrl.Disable(unitID)
 	Spring.SetUnitNoSelect(unitID, false)
-	GG.EmitSfxName(unitID, dirt, "dust_bloom_big")
 	GG.RemoveGrassSquare(X, Z, 64)
 	GG.SpawnDecal("decal_beacon", X, Z)
+	GG.SpawnDecal("decal_beacon_zone", X, Z, 230)
 	Spring.SetUnitRulesParam(unitID, "mcm_navbeacon_impact", 1, {public = true})
 end
 
@@ -93,6 +93,7 @@ function script.Create()
 	WaitForImpact()
 
 	stage = 2
+	EmitSfx(dirt, SFX.CEG + 1)
 	Show(dirt)
 	StopSpin(base, y_axis)
 	PlaySound("NavBeacon_Land", 30)
