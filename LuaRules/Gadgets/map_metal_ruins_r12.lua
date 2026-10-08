@@ -456,7 +456,9 @@ local buildingFeatureNames = {}
 -- Utility
 --------------------------------------------------------------------------------
 
-local function Debug(...)\n    -- Routine diagnostics disabled for production logs.\nend
+local function Debug(...)
+    -- Routine diagnostics disabled for production logs.
+end
 
 local function Clamp(value, minimum, maximum)
     if value < minimum then
