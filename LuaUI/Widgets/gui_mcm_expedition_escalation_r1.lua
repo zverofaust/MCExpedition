@@ -18,7 +18,7 @@ local GetGameRulesParam = Spring.GetGameRulesParam
 local vsx, vsy = Spring.GetViewGeometry()
 
 function widget:Initialize()
-	if GetGameRulesParam("mcl_mode") ~= "mercs" or GetGameRulesParam("contract_type") ~= "expedition" then
+	if GetGameRulesParam("mcl_mode") ~= "mercs" then
 		widgetHandler:RemoveWidget(self)
 	end
 end
