@@ -79,7 +79,7 @@ local function DrawProjectedRing(site, radius, alpha)
 end
 
 function widget:Initialize()
-	if Spring.GetGameRulesParam("mcl_mode") ~= "mercs" or Spring.GetGameRulesParam("contract_type") ~= "expedition" then
+	if Spring.GetGameRulesParam("mcl_mode") ~= "mercs" then
 		widgetHandler:RemoveWidget(self)
 	end
 end
