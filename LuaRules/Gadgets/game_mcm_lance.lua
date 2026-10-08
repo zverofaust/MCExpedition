@@ -89,6 +89,7 @@ function gadget:Initialize()
 	BuildMercCatalog()
 	Spring.SetGameRulesParam("mcm_lance_ready", 0, {public = true})
 	Spring.SetGameRulesParam("mcm_lance_size", 0, {public = true})
+	Spring.SetGameRulesParam("mcm_lance_inbound", 0, {public = true})
 end
 
 function gadget:GameFrame(frame)
