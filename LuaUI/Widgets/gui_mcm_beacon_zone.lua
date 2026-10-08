@@ -15,18 +15,19 @@ function widget:GetInfo()
 		date      = "08/10/26",
 		license   = "GNU GPL v2",
 		layer     = 5,
-		enabled   = false, -- selected by the mode UI router
+		enabled   = true,
 	}
 end
 
+local GetGameRulesParam = Spring.GetGameRulesParam
 local GetGroundHeight = Spring.GetGroundHeight
-local GetTeamUnitsByDefs = Spring.GetTeamUnitsByDefs
 local GetUnitPosition = Spring.GetUnitPosition
+local GetUnitTeam = Spring.GetUnitTeam
 local GetTeamColor = Spring.GetTeamColor
+local ValidUnitID = Spring.ValidUnitID
 local IsUnitVisible = Spring.IsUnitVisible
 local IsGUIHidden = Spring.IsGUIHidden
 
-local glCallList = gl.CallList
 local glPushMatrix = gl.PushMatrix
 local glPopMatrix = gl.PopMatrix
 local glTranslate = gl.Translate
@@ -37,17 +38,13 @@ local GL_QUAD_STRIP = GL.QUAD_STRIP
 local sin, cos = math.sin, math.cos
 local PI = math.pi
 
-local BEACON_DEF_ID = UnitDefNames["mcm_navbeacon"].id
 local BEACON_RADIUS = 460
 local MAX_ALPHA = 0.5
 local INNER_SIZE = 0.875
 local CIRCLE_DIVS = 6
 local CIRCLE_INC = 2 * PI / CIRCLE_DIVS
 
-local teams = Spring.GetTeamList()
-local circleLists = {}
-
-local function DrawTeamCircle(teamID)
+local function DrawOwnershipBand(teamID)
 	local vertices = {}
 	local r, g, b = GetTeamColor(teamID)
 
@@ -64,43 +61,33 @@ local function DrawTeamCircle(teamID)
 	glShape(GL_QUAD_STRIP, vertices)
 end
 
-function widget:Initialize()
-	for i = 1, #teams do
-		local teamID = teams[i]
-		circleLists[teamID] = gl.CreateList(DrawTeamCircle, teamID)
-	end
-end
-
-function widget:Shutdown()
-	for i = 1, #teams do
-		local listID = circleLists[teams[i]]
-		if listID then
-			gl.DeleteList(listID)
-		end
-	end
-end
-
 function widget:DrawWorldPreUnit()
-	if IsGUIHidden() then
+	if IsGUIHidden() or GetGameRulesParam("mcl_mode") ~= "mercs" then
 		return
 	end
 
-	for i = 1, #teams do
-		local teamID = teams[i]
-		local beacons = GetTeamUnitsByDefs(teamID, BEACON_DEF_ID)
-
-		for j = 1, #beacons do
-			local unitID = beacons[j]
-			if IsUnitVisible(unitID, BEACON_RADIUS, true) then
-				local x, y, z = GetUnitPosition(unitID)
-				if y and y <= GetGroundHeight(x, z) + 5 then
-					glPushMatrix()
-						glTranslate(x, y, z)
-						glScale(BEACON_RADIUS, 1, BEACON_RADIUS)
-						glCallList(circleLists[teamID])
-					glPopMatrix()
-				end
-			end
-		end
+	local unitID = GetGameRulesParam("mcm_player_beacon")
+	if not unitID or unitID <= 0 or not ValidUnitID(unitID) then
+		return
 	end
+
+	if not IsUnitVisible(unitID, BEACON_RADIUS, true) then
+		return
+	end
+
+	local x, y, z = GetUnitPosition(unitID)
+	if not x or y > GetGroundHeight(x, z) + 5 then
+		return
+	end
+
+	local teamID = GetUnitTeam(unitID)
+	if not teamID then
+		return
+	end
+
+	glPushMatrix()
+		glTranslate(x, y, z)
+		glScale(BEACON_RADIUS, 1, BEACON_RADIUS)
+		DrawOwnershipBand(teamID)
+	glPopMatrix()
 end
