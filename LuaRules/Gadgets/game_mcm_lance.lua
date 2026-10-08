@@ -45,19 +45,6 @@ local function BuildMercCatalog()
 	end
 end
 
-local function GetDeploymentPosition(teamID)
-	local x = Spring.GetGameRulesParam("mcm_player_start_x")
-	local z = Spring.GetGameRulesParam("mcm_player_start_z")
-	if not x or not z then
-		x, _, z = Spring.GetTeamStartPosition(teamID)
-	end
-	if not x or x < 0 or not z or z < 0 then
-		x = Game.mapSizeX * 0.5
-		z = Game.mapSizeZ * 0.5
-	end
-	return x, z
-end
-
 local function ParseOrder(msg)
 	if type(msg) ~= "string" or msg:sub(1, #MSG_PREFIX) ~= MSG_PREFIX then
 		return
@@ -79,51 +66,21 @@ local function ParseOrder(msg)
 end
 
 local function SpawnLance(names)
-	local x, z = GetDeploymentPosition(mercTeamID)
-	local spacing = 96
-	local offsets = {
-		{-spacing, -spacing},
-		{ spacing, -spacing},
-		{-spacing,  spacing},
-		{ spacing,  spacing},
-	}
-
+	local unitDefIDs = {}
 	for i = 1, LANCE_SIZE do
 		local unitDefID = canonicalMechs[names[i]]
 		if not unitDefID then
 			return false
 		end
+		unitDefIDs[i] = unitDefID
 	end
 
-	local created = {}
-	for i = 1, LANCE_SIZE do
-		local ox, oz = offsets[i][1], offsets[i][2]
-		local ux, uz = x + ox, z + oz
-		local unitID = Spring.CreateUnit(
-			canonicalMechs[names[i]],
-			ux,
-			Spring.GetGroundHeight(ux, uz),
-			uz,
-			"s",
-			mercTeamID
-		)
-		if not unitID then
-			for j = 1, #created do
-				Spring.DestroyUnit(created[j], false, true)
-			end
-			Spring.Echo("[MCM Lance] Lance deployment failed; rolled back partial deployment.")
-			return false
-		end
-
-		created[#created + 1] = unitID
-		Spring.SetUnitRulesParam(unitID, "mcm_lance", 1, {public = true})
-		Spring.SetUnitRulesParam(unitID, "mcm_lance_slot", i, {public = true})
+	if not GG.MCMDeployLance or not GG.MCMDeployLance(unitDefIDs) then
+		Spring.Echo("[MCM Lance] Dropship insertion could not be started.")
+		return false
 	end
 
 	ordered = true
-	Spring.SetGameRulesParam("mcm_lance_ready", 1, {public = true})
-	Spring.SetGameRulesParam("mcm_lance_size", LANCE_SIZE, {public = true})
-	SendToUnsynced("mcm_lance_deployed", mercTeamID)
 	return true
 end
 
