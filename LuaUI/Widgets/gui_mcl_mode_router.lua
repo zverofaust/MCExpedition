@@ -28,11 +28,9 @@ local MODE_WIDGETS = {
 	pvp = {
 		"Unit Deck",
 		"MC:L - Tickets & Resources",
-		"MC:L - Beacon Ranges",
 	},
 	mercs = {
 		"MCM Unit Deck",
-		"MC:L - Beacon Ranges",
 	},
 }
 
