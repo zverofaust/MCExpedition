@@ -37,6 +37,25 @@ return {
 		deep = {min = 1, max = 1},
 	},
 
+	-- Encounters occupy otherwise-unused authored camps, Beacon/resource sites
+	-- and starts. They contain only a small parked vehicle force: no structures,
+	-- turrets, base decal or opening enemy-presence ping.
+	encounterTargets = {min = 5, max = 10},
+	encounterForces = {
+		near = {
+			count = {min = 3, max = 4},
+			weights = {light = 75, medium = 25, heavy = 0, assault = 0},
+		},
+		operational = {
+			count = {min = 3, max = 4},
+			weights = {light = 40, medium = 45, heavy = 15, assault = 0},
+		},
+		deep = {
+			count = {min = 3, max = 4},
+			weights = {light = 20, medium = 40, heavy = 35, assault = 5},
+		},
+	},
+
 	sourceWeights = {
 		camp = {
 			checkpoint = 1.50,
