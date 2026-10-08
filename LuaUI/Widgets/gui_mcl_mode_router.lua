@@ -32,6 +32,7 @@ local MODE_WIDGETS = {
 	},
 	mercs = {
 		"MCM Unit Deck",
+		"MC:L - Beacon Ranges",
 	},
 }
 
