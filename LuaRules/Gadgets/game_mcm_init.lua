@@ -123,5 +123,11 @@ function gadget:Initialize()
 	playerStartX, playerStartZ = ChoosePlayerStart()
 	Spring.SetGameRulesParam("mcm_player_start_x", playerStartX, {public = true})
 	Spring.SetGameRulesParam("mcm_player_start_z", playerStartZ, {public = true})
-	SpawnPlayerBeacon()
+	Spring.SetGameRulesParam("mcm_player_beacon", 0, {public = true})
+end
+
+function gadget:GameStart()
+	if mercTeamID and not Spring.ValidUnitID(Spring.GetGameRulesParam("mcm_player_beacon") or -1) then
+		SpawnPlayerBeacon()
+	end
 end
