@@ -90,7 +90,9 @@ function LoadCargo(cargoID, callerUnitID, callerBeaconID)
 		numCargo = numCargo + 1
 		cargo[numCargo] = cargoID
 		Spring.UnitScript.AttachUnit(--[[cargoPieces[numCargo] or]] -1, cargoID)
-		GG.SetSquad(cargoID, teamID) -- will ignore non-vehicles
+		if GG.SetSquad then
+			GG.SetSquad(cargoID, teamID) -- PvP vehicle reinforcement squads; absent in Mercs.
+		end
 		Spring.SetUnitCOBValue(cargoID, COB.ACTIVATION, 0)
 		env = Spring.UnitScript.GetScriptEnv(cargoID)
 		if env.ParentBeacon then
