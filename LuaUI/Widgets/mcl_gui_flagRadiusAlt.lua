@@ -39,6 +39,7 @@ local sin, cos = math.sin, math.cos
 -- constants
 local FLAG_DEF_ID = {
 	UnitDefNames["beacon"].id,
+	UnitDefNames["mcm_navbeacon"].id,
 	--[[UnitDefNames["outpost_vehicledepot"].id,
 	UnitDefNames["outpost_c3center"].id, 
 	UnitDefNames["outpost_garrison"].id, 
