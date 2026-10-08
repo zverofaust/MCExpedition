@@ -83,12 +83,6 @@ end
 GG.SpeedChange = SpeedChange
 
 function gadget:Initialize()
-	-- Support /luarules reload
-	for _,unitID in ipairs(Spring.GetAllUnits()) do
-		local teamID = Spring.GetUnitTeam(unitID)
-		local unitDefID = Spring.GetUnitDefID(unitID)
-		gadget:UnitCreated(unitID, unitDefID, teamID)
-	end
 	-- centralise key bindings
 	Spring.SendCommands({"bind c flush"})
 	Spring.SendCommands({"bind v runtoggle"})
