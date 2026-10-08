@@ -942,10 +942,13 @@ function script.Killed(recentDamage, maxHealth)
 		local DELAY_IN_SECONDS = 0.1
 		GG.Delay.DelayCall(Spring.CreateUnit,{"nuke_meltdown", x, y, z, 0, teamID}, 30 * DELAY_IN_SECONDS)
 	end
-	-- Salavage time
-	local attackerID = Spring.GetUnitLastAttacker(unitID)
-	local numSalvage = GG.PinataLevel(attackerID) + 1 -- always produce at least 1
-	GenSalvage(numSalvage)
+	-- MCL drops abstract salvage piles on Mech destruction. Mercs preserves
+	-- the physical wreck for later recovery instead of spawning resource pickups.
+	if Game.modShortName ~= "MCM" then
+		local attackerID = Spring.GetUnitLastAttacker(unitID)
+		local numSalvage = GG.PinataLevel(attackerID) + 1 -- always produce at least 1
+		GenSalvage(numSalvage)
+	end
 	-- Let Betty commemorate your sacrifice
 	local soundNum = math.random(2)
 	if not Spring.GetUnitTransporter(unitID) then
