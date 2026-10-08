@@ -95,7 +95,7 @@ GG.GetUnitDistanceToPoint = GetUnitDistanceToPoint
 
 function SpawnDecal(decalName, x, z, size, angle, delay, duration, teamID)
 	if delay then
-		GG.Delay.DelayCall(SpawnDecal, {decalName, x, z, size, angle, nil, duration, teamID}, delay)
+		GG.Delay.DelayCall(SpawnDecal, {decalName, x, z, size, angle, false, duration, teamID}, delay)
 	else
 		SendToUnsynced("SPAWNDECAL", decalName, x, z, size, angle, duration, teamID)
 	end
