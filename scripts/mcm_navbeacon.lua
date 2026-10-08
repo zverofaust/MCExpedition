@@ -63,7 +63,7 @@ local function WaitForImpact()
 	Spring.SetUnitNoSelect(unitID, false)
 	GG.RemoveGrassSquare(X, Z, 64)
 	GG.SpawnDecal("decal_beacon", X, Z)
-	GG.SpawnDecal("decal_beacon_zone", X, Z, 230)
+	GG.SpawnDecal("decal_beacon_zone", X, Z, 460)
 	Spring.SetUnitRulesParam(unitID, "mcm_navbeacon_impact", 1, {public = true})
 end
 
