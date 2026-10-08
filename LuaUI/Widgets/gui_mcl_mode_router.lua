@@ -31,6 +31,7 @@ local MODE_WIDGETS = {
 	},
 	mercs = {
 		"MCM Unit Deck",
+		"MCM Nav Beacon Zone",
 	},
 }
 
