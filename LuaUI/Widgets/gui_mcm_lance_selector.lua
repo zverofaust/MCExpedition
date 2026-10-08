@@ -276,7 +276,7 @@ end
 
 function widget:Update()
 	if initialized then
-		if Spring.GetGameRulesParam("mcm_lance_ready") == 1 then
+		if Spring.GetGameRulesParam("mcm_lance_ready") == 1 or Spring.GetGameRulesParam("mcm_lance_inbound") == 1 then
 			RemoveSelector()
 		end
 		return
@@ -290,7 +290,7 @@ function widget:Update()
 		widgetHandler:RemoveWidget(self)
 		return
 	end
-	if Spring.GetGameRulesParam("mcm_lance_ready") == 1 then
+	if Spring.GetGameRulesParam("mcm_lance_ready") == 1 or Spring.GetGameRulesParam("mcm_lance_inbound") == 1 then
 		widgetHandler:RemoveWidget(self)
 		return
 	end
