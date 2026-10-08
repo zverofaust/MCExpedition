@@ -70,9 +70,9 @@ local function ChoosePlayerStart()
 end
 
 local function SpawnPlayerBeacon()
-	local beaconDef = UnitDefNames.beacon
+	local beaconDef = UnitDefNames.mcm_navbeacon
 	if not beaconDef then
-		Spring.Echo("[MCM Init] Nav Beacon UnitDef 'beacon' is unavailable")
+		Spring.Echo("[MCM Init] Nav Beacon UnitDef 'mcm_navbeacon' is unavailable")
 		return
 	end
 
