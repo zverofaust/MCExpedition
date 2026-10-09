@@ -1,10 +1,10 @@
--- MCM Combat AI r11: general vehicle tactical movement prototype.
+-- MCM Combat AI r12: general vehicle tactical movement prototype.
 -- Authors: zvero + ChatGPT
 -- Scope: all vehicle-class units; explicit unqueued unit Attack only.
 -- Native Move/Stop/Patrol/Fight and manually set targets retain priority.
 function gadget:GetInfo()
     return {
-        name = "MCM Combat AI r11",
+        name = "MCM Combat AI r12",
         desc = "Experimental weapon-aware vehicle engagement manoeuvres",
         author = "zvero + ChatGPT",
         date = "2026-10-08",
@@ -24,61 +24,56 @@ local diagnostics = {}
 local function Debug(unitID, msg)
     if diagnostics[unitID] ~= msg then
         diagnostics[unitID] = msg
-        Spring.Echo("[MCM Combat AI r11] unit " .. unitID .. ": " .. msg)
+        Spring.Echo("[MCM Combat AI r12] unit " .. unitID .. ": " .. msg)
     end
 end
 local eligible = {}
 local matched = 0
 
--- Classify from movement type, effective weapon range and firing arcs.
--- All hovercraft alternate orbiting and short attack passes.
-local profileCounts = {hold = 0, circle = 0, hybrid = 0}
-local function WeaponTraits(ud)
-    local weightedRange, weightTotal, forwardWeight, broadWeight = 0, 0, 0, 0
-    for _, mount in ipairs(ud.weapons or {}) do
-        local wd = WeaponDefs[mount.weaponDef]
-        if wd and wd.range and wd.range > 0 and not wd.manualFire then
-            local weight = max(1, (wd.damages and (wd.damages[0] or wd.damages[1])) or 1)
-            local arc = tonumber(mount.maxAngleDif or mount.maxangledif or wd.maxAngleDif or wd.maxangledif)
-            local dir = mount.mainDir or mount.maindir
-            local dirString = dir and tostring(dir) or ""
-            -- Narrow arcs and explicit forward-facing mounts favour passes.
-            if arc and arc <= 70 and (dirString == "" or dirString:match("^0[%s,]+0[%s,]+1")) then
-                forwardWeight = forwardWeight + weight
-            else
-                broadWeight = broadWeight + weight
-            end
-            weightedRange = weightedRange + wd.range * weight
-            weightTotal = weightTotal + weight
-        end
-    end
-    return weightTotal > 0 and weightedRange / weightTotal or 0,
-        forwardWeight > broadWeight
-end
+-- Repertoires are based on mobility, not chassis names.
+-- Each manoeuvre is independent; the selector rotates among permitted moves.
+local profileCounts = {ground = 0, hover = 0}
+local repertoires = {
+    ground = {"hold", "circle", "broadside"},
+    hover = {"circle", "driveby"},
+}
 for defID, ud in pairs(UnitDefs) do
     local cp = ud.customParams or ud.customparams or {}
     if cp.baseclass == "vehicle" and ud.canMove and not ud.canFly then
         local movement = string.lower(tostring((ud.moveDef and ud.moveDef.name) or ud.movementClass or ""))
-        local hover = movement:find("hover") ~= nil
-        local wheeled = cp.wheels == true or cp.wheels == "true" or cp.wheels == "1"
-        local weaponRange, forwardArcs = WeaponTraits(ud)
-        local speed = tonumber(cp.speed) or ((ud.speed or 0) * 30)
-        local profile
-        if hover then
-            profile = "hybrid"
-        elseif wheeled and speed >= 75 and weaponRange > 0 and weaponRange < 550 and not forwardArcs then
-            profile = "circle"
-        else
-            profile = "hold"
-        end
-        eligible[defID] = {profile = profile, forwardArcs = forwardArcs, weaponRange = weaponRange}
-        profileCounts[profile] = profileCounts[profile] + 1
+        local mobility = movement:find("hover") and "hover" or "ground"
+        eligible[defID] = mobility
+        profileCounts[mobility] = profileCounts[mobility] + 1
         matched = matched + 1
     end
 end
 
+-- Deterministic per-unit variation; synced-safe, no global RNG state.
+local function Variation(unitID, frame, salt)
+    local value = (unitID * 173 + frame * 37 + salt * 101) % 997
+    return value / 997
+end
+
+local function ChooseManoeuvre(unitID, state, frame)
+    local repertoire = repertoires[state.mobility]
+    local options = {}
+    for i = 1, #repertoire do
+        if repertoire[i] ~= state.manoeuvre then
+            options[#options + 1] = repertoire[i]
+        end
+    end
+    local index = 1 + math.floor(Variation(unitID, frame, state.transitions) * #options)
+    state.manoeuvre = options[index]
+    state.phase = "approach"
+    state.untilFrame = frame + 90 + math.floor(Variation(unitID, frame, 7) * 120)
+    state.goalX, state.goalZ = nil, nil
+    state.orbitAligned = false
+    state.transitions = state.transitions + 1
+    Debug(unitID, "selected " .. state.manoeuvre .. " (transition " .. state.transitions .. ")")
+end
+
 function gadget:Initialize()
-    Spring.Echo("[MCM Combat AI r11] initialized; eligible UnitDefs=" .. matched .. " (hold=" .. profileCounts.hold .. ", circle=" .. profileCounts.circle .. ", hybrid=" .. profileCounts.hybrid .. ")")
+    Spring.Echo("[MCM Combat AI r12] initialized; eligible UnitDefs=" .. matched .. " (ground=" .. profileCounts.ground .. ", hover=" .. profileCounts.hover .. ")")
     for _, unitID in ipairs(Spring.GetAllUnits()) do
         local defID = Spring.GetUnitDefID(unitID)
         if eligible[defID] then Debug(unitID, "eligible unit initialized") end
@@ -165,12 +160,13 @@ function gadget:AllowCommand(unitID, defID, teamID, cmdID, params, opts)
         if range then
             states[unitID] = {
                 target = params[1], range = range,
-                profile = eligible[defID].profile, phase = "approach",
-                forwardArcs = eligible[defID].forwardArcs, orbitUntil = nil,
+                mobility = eligible[defID], manoeuvre = nil,
+                phase = "approach", transitions = 0,
                 side = (unitID % 2 == 0) and 1 or -1,
-                passX = nil, passZ = nil, orbitAligned = false,
+                orbitAligned = false,
             }
-            Debug(unitID, "acquired " .. eligible[defID].profile .. " target " .. params[1] .. " at range " .. math.floor(range))
+            ChooseManoeuvre(unitID, states[unitID], Spring.GetGameFrame())
+            Debug(unitID, "acquired " .. eligible[defID] .. " target " .. params[1] .. " at range " .. math.floor(range))
             -- Consume native Attack so it cannot override manoeuvre goals.
             return false
         end
@@ -200,40 +196,34 @@ function gadget:GameFrame(frame)
                 local distance, dx, dz = Distance(x, z, tx, tz)
                 local range = state.range
                 local nx, nz = dx / max(distance, 1), dz / max(distance, 1)
-                local profile = state.profile
-                Debug(unitID, "executing " .. profile .. " phase " .. state.phase)
+                local manoeuvre = state.manoeuvre
+                local finished = false
 
-                if profile == "hold" then
-                    -- Mars: enter preferred range, then hold; reverse only when
-                    -- the opponent is dangerously close. Native movement handles
-                    -- hull rotation and obstacles.
+                if manoeuvre == "hold" then
                     if distance > range * 1.10 then
                         state.phase = "approach"
                         Goal(unitID, tx, ty, tz, range * 0.88)
                     elseif distance < range * 0.38 then
                         state.phase = "withdraw"
                         Goal(unitID, x - nx * range * 0.55, y, z - nz * range * 0.55, 32)
-                    elseif state.phase ~= "hold" then
+                    else
+                        if state.phase ~= "hold" then Goal(unitID, x, y, z, 16) end
                         state.phase = "hold"
-                        Goal(unitID, x, y, z, 16)
+                        finished = frame >= state.untilFrame
                     end
 
-                elseif profile == "circle" or (profile == "hybrid" and state.phase == "orbit") then
-                    -- Pegasus: orbit the target with a small radial correction.
-                    -- Tangential goals change gradually, using native hover pathing.
+                elseif manoeuvre == "circle" then
                     if distance > range * 1.30 then
                         state.phase = "approach"
                         Goal(unitID, tx, ty, tz, range * 0.75)
                     else
-                        if profile == "circle" then state.phase = "circle" end
-                        -- Align the initial orbit direction with the hull heading
-                        -- so the first tangential goal is not behind the vehicle.
+                        state.phase = "circle"
                         if not state.orbitAligned then
                             local heading = Spring.GetUnitHeading(unitID)
                             if heading then
                                 local angle = heading * (2 * math.pi / 65536)
                                 local tangentX, tangentZ = -nz * state.side, nx * state.side
-                                if math.sin(angle) * tangentX + math.cos(angle) * tangentZ < 0 then
+                                if sin(angle) * tangentX + cos(angle) * tangentZ < 0 then
                                     state.side = -state.side
                                 end
                                 state.orbitAligned = true
@@ -242,45 +232,47 @@ function gadget:GameFrame(frame)
                         local desired = range * 0.72
                         local radial = max(-0.65, min(0.65, (distance - desired) / max(desired, 1)))
                         local stride = max(110, min(240, range * 0.35))
-                        Goal(unitID,
-                            x + (-nz * state.side + nx * radial) * stride,
-                            y,
-                            z + (nx * state.side + nz * radial) * stride,
-                            24)
-                    end
-                    if profile == "hybrid" and state.phase == "orbit"
-                        and state.orbitUntil and frame >= state.orbitUntil then
-                        state.phase = "approach"
-                        state.orbitUntil = nil
+                        Goal(unitID, x + (-nz * state.side + nx * radial) * stride,
+                            y, z + (nx * state.side + nz * radial) * stride, 24)
+                        finished = frame >= state.untilFrame
                     end
 
-                elseif profile == "pass" or profile == "hybrid" then
-                    -- Savannah Master: short, committed drive-by, then turn back.
-                    -- Do not continuously extend the goal away from the target.
-                    local stride = max(90, min(170, range * 0.48))
-                    if state.phase == "pass" and state.passX then
-                        local remaining = Distance(x, z, state.passX, state.passZ)
-                        if remaining < 55 then
-                            state.phase = profile == "hybrid" and "orbit" or "approach"
-                            if profile == "hybrid" then
-                                state.orbitUntil = frame + (state.forwardArcs and 75 or 150)
-                            end
-                            state.passX, state.passZ = nil, nil
-                        else
-                            Goal(unitID, state.passX, y, state.passZ, 24)
+                elseif manoeuvre == "broadside" then
+                    if distance > range * 1.15 then
+                        state.phase = "approach"
+                        Goal(unitID, tx, ty, tz, range * 0.80)
+                    else
+                        if not state.goalX then
+                            local stride = max(90, min(240, range * (0.24 + Variation(unitID, frame, 3) * 0.18)))
+                            local side = state.side
+                            state.goalX = x - nz * side * stride + nx * (distance - range * 0.75) * 0.3
+                            state.goalZ = z + nx * side * stride + nz * (distance - range * 0.75) * 0.3
+                            state.phase = "broadside"
                         end
+                        Goal(unitID, state.goalX, y, state.goalZ, 32)
+                        finished = Distance(x, z, state.goalX, state.goalZ) < 45
+                            or frame >= state.untilFrame + 90
                     end
-                    if state.phase == "approach" then
-                        if distance < range * 0.72 then
-                            state.phase = "pass"
-                            state.passX = tx + nx * stride
-                            state.passZ = tz + nz * stride
-                            Goal(unitID, state.passX, ty, state.passZ, 24)
-                        else
-                            Goal(unitID, tx, ty, tz, range * 0.35)
-                        end
+
+                elseif manoeuvre == "driveby" then
+                    if state.phase == "pass" and state.goalX then
+                        Goal(unitID, state.goalX, y, state.goalZ, 24)
+                        finished = Distance(x, z, state.goalX, state.goalZ) < 55
+                            or frame >= state.untilFrame + 120
+                    elseif distance < range * 0.72 then
+                        local stride = max(90, min(170, range * (0.38 + Variation(unitID, frame, 5) * 0.20)))
+                        state.phase = "pass"
+                        state.goalX = tx + nx * stride
+                        state.goalZ = tz + nz * stride
+                        Goal(unitID, state.goalX, ty, state.goalZ, 24)
+                    else
+                        state.phase = "approach"
+                        Goal(unitID, tx, ty, tz, range * 0.35)
                     end
                 end
+
+                if finished then ChooseManoeuvre(unitID, state, frame) end
+                Debug(unitID, "executing " .. state.manoeuvre .. " phase " .. state.phase)
                 Spring.SetUnitTarget(unitID, state.target, false, true)
             end
         end
