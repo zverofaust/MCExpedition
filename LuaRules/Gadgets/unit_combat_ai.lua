@@ -1,10 +1,10 @@
--- MCM Combat AI r12: general vehicle tactical movement prototype.
+-- MCM Combat AI r13: general vehicle tactical movement prototype.
 -- Authors: zvero + ChatGPT
 -- Scope: all vehicle-class units; explicit unqueued unit Attack only.
 -- Native Move/Stop/Patrol/Fight and manually set targets retain priority.
 function gadget:GetInfo()
     return {
-        name = "MCM Combat AI r12",
+        name = "MCM Combat AI r13",
         desc = "Experimental weapon-aware vehicle engagement manoeuvres",
         author = "zvero + ChatGPT",
         date = "2026-10-08",
@@ -24,7 +24,7 @@ local diagnostics = {}
 local function Debug(unitID, msg)
     if diagnostics[unitID] ~= msg then
         diagnostics[unitID] = msg
-        Spring.Echo("[MCM Combat AI r12] unit " .. unitID .. ": " .. msg)
+        Spring.Echo("[MCM Combat AI r13] unit " .. unitID .. ": " .. msg)
     end
 end
 local eligible = {}
@@ -34,8 +34,8 @@ local matched = 0
 -- Each manoeuvre is independent; the selector rotates among permitted moves.
 local profileCounts = {ground = 0, hover = 0}
 local repertoires = {
-    ground = {"hold", "circle", "broadside"},
-    hover = {"circle", "driveby"},
+    ground = {"hold", "circle", "broadside", "approach"},
+    hover = {"circle", "driveby", "approach"},
 }
 for defID, ud in pairs(UnitDefs) do
     local cp = ud.customParams or ud.customparams or {}
@@ -73,7 +73,7 @@ local function ChooseManoeuvre(unitID, state, frame)
 end
 
 function gadget:Initialize()
-    Spring.Echo("[MCM Combat AI r12] initialized; eligible UnitDefs=" .. matched .. " (ground=" .. profileCounts.ground .. ", hover=" .. profileCounts.hover .. ")")
+    Spring.Echo("[MCM Combat AI r13] initialized; eligible UnitDefs=" .. matched .. " (ground=" .. profileCounts.ground .. ", hover=" .. profileCounts.hover .. ")")
     for _, unitID in ipairs(Spring.GetAllUnits()) do
         local defID = Spring.GetUnitDefID(unitID)
         if eligible[defID] then Debug(unitID, "eligible unit initialized") end
@@ -161,6 +161,7 @@ function gadget:AllowCommand(unitID, defID, teamID, cmdID, params, opts)
             states[unitID] = {
                 target = params[1], range = range,
                 mobility = eligible[defID], manoeuvre = nil,
+                sightRange = UnitDefs[defID].sightDistance or UnitDefs[defID].sightdistance or 0,
                 phase = "approach", transitions = 0,
                 side = (unitID % 2 == 0) and 1 or -1,
                 orbitAligned = false,
@@ -199,7 +200,26 @@ function gadget:GameFrame(frame)
                 local manoeuvre = state.manoeuvre
                 local finished = false
 
-                if manoeuvre == "hold" then
+                if manoeuvre == "approach" then
+                    -- Close to a useful visual/firing distance without face-hugging.
+                    -- Visual range is preferred when shorter than weapon range,
+                    -- but never force a vehicle into point-blank proximity.
+                    local sight = state.sightRange
+                    local desired = range * 0.82
+                    if sight and sight > 0 then desired = min(desired, sight * 0.85) end
+                    desired = max(120, range * 0.40, desired)
+                    if distance > desired * 1.08 then
+                        state.phase = "closing"
+                        -- A standoff destination rather than the target's position.
+                        Goal(unitID, tx - nx * desired, ty, tz - nz * desired, 32)
+                    else
+                        state.phase = "in_position"
+                        finished = true
+                    end
+                    -- Don't pursue indefinitely if the enemy continually retreats.
+                    if frame >= state.untilFrame + 150 then finished = true end
+
+                elseif manoeuvre == "hold" then
                     if distance > range * 1.10 then
                         state.phase = "approach"
                         Goal(unitID, tx, ty, tz, range * 0.88)
