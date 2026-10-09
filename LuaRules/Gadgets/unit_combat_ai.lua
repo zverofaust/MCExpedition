@@ -1,10 +1,10 @@
--- MCM Combat AI r13: general vehicle tactical movement prototype.
+-- MCM Combat AI r14: general vehicle tactical movement prototype.
 -- Authors: zvero + ChatGPT
 -- Scope: all vehicle-class units; explicit unqueued unit Attack only.
 -- Native Move/Stop/Patrol/Fight and manually set targets retain priority.
 function gadget:GetInfo()
     return {
-        name = "MCM Combat AI r13",
+        name = "MCM Combat AI r14",
         desc = "Experimental weapon-aware vehicle engagement manoeuvres",
         author = "zvero + ChatGPT",
         date = "2026-10-08",
@@ -24,7 +24,7 @@ local diagnostics = {}
 local function Debug(unitID, msg)
     if diagnostics[unitID] ~= msg then
         diagnostics[unitID] = msg
-        Spring.Echo("[MCM Combat AI r13] unit " .. unitID .. ": " .. msg)
+        Spring.Echo("[MCM Combat AI r14] unit " .. unitID .. ": " .. msg)
     end
 end
 local eligible = {}
@@ -35,7 +35,7 @@ local matched = 0
 local profileCounts = {ground = 0, hover = 0}
 local repertoires = {
     ground = {"hold", "circle", "broadside", "approach"},
-    hover = {"circle", "driveby", "approach"},
+    hover = {"circle", "driveby"},
 }
 for defID, ud in pairs(UnitDefs) do
     local cp = ud.customParams or ud.customparams or {}
@@ -73,7 +73,7 @@ local function ChooseManoeuvre(unitID, state, frame)
 end
 
 function gadget:Initialize()
-    Spring.Echo("[MCM Combat AI r13] initialized; eligible UnitDefs=" .. matched .. " (ground=" .. profileCounts.ground .. ", hover=" .. profileCounts.hover .. ")")
+    Spring.Echo("[MCM Combat AI r14] initialized; eligible UnitDefs=" .. matched .. " (ground=" .. profileCounts.ground .. ", hover=" .. profileCounts.hover .. ")")
     for _, unitID in ipairs(Spring.GetAllUnits()) do
         local defID = Spring.GetUnitDefID(unitID)
         if eligible[defID] then Debug(unitID, "eligible unit initialized") end
