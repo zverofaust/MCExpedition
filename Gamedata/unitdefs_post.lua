@@ -361,6 +361,10 @@ for name, ud in pairs(UnitDefs) do
 			ud.radaremitheight = 100
 			ud.seismicsignature = cp.tonnage / 10
 			ud.airsightdistance = ud.radardistance
+		elseif cp.baseclass == "vehicle" then
+			-- Basic 360-degree vehicle radar: unidentified contacts only.
+			-- Preserve explicit vehicle-specific radar configurations.
+			ud.radardistance = ud.radardistance or (650 * modOptions.radar)
 		elseif cp.baseclass == "turret" and cp.slotcost == 2 then
 			table.insert(ud.weapons, {name = "sight"})
 			ud.radardistance = roleSensors["hturret"].radar * modOptions.radar
