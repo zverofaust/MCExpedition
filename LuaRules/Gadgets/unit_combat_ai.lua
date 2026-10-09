@@ -1,4 +1,4 @@
--- MCM Combat AI r6: limited vehicle tactical movement prototype.
+-- MCM Combat AI r7: limited vehicle tactical movement prototype.
 -- Authors: zvero + ChatGPT
 -- Scope: Mars, Pegasus and Savannah Master only; explicit unqueued unit Attack only.
 -- Native Move/Stop/Patrol/Fight and manually set targets retain priority.
@@ -24,7 +24,7 @@ local diagnostics = {}
 local function Debug(unitID, msg)
     if diagnostics[unitID] ~= msg then
         diagnostics[unitID] = msg
-        Spring.Echo("[MCM Combat AI r6] unit " .. unitID .. ": " .. msg)
+        Spring.Echo("[MCM Combat AI r7] unit " .. unitID .. ": " .. msg)
     end
 end
 local eligible = {}
@@ -47,13 +47,13 @@ for internalName, ud in pairs(UnitDefNames) do
     if profile and ud.id then
         eligible[ud.id] = profile
         matched = matched + 1
-        Spring.Echo("[MCM Combat AI r6] registered " .. key .. " id=" .. ud.id .. " as " .. profile)
+        Spring.Echo("[MCM Combat AI r7] registered " .. key .. " id=" .. ud.id .. " as " .. profile)
     end
 end
-Spring.Echo("[MCM Combat AI r6] UnitDefNames entries inspected=" .. inspected)
+Spring.Echo("[MCM Combat AI r7] UnitDefNames entries inspected=" .. inspected)
 
 function gadget:Initialize()
-    Spring.Echo("[MCM Combat AI r6] initialized; eligible UnitDefs=" .. matched)
+    Spring.Echo("[MCM Combat AI r7] initialized; eligible UnitDefs=" .. matched)
     for _, unitID in ipairs(Spring.GetAllUnits()) do
         local defID = Spring.GetUnitDefID(unitID)
         if eligible[defID] then Debug(unitID, "eligible unit initialized") end
@@ -142,7 +142,7 @@ function gadget:AllowCommand(unitID, defID, teamID, cmdID, params, opts)
                 target = params[1], range = range,
                 profile = eligible[defID], phase = "approach",
                 side = (unitID % 2 == 0) and 1 or -1,
-                passX = nil, passZ = nil,
+                passX = nil, passZ = nil, orbitAligned = false,
             }
             Debug(unitID, "acquired " .. eligible[defID] .. " target " .. params[1] .. " at range " .. math.floor(range))
             -- Consume native Attack so it cannot override manoeuvre goals.
@@ -200,6 +200,19 @@ function gadget:GameFrame(frame)
                         Goal(unitID, tx, ty, tz, range * 0.75)
                     else
                         state.phase = "circle"
+                        -- Align the initial orbit direction with the hull heading
+                        -- so the first tangential goal is not behind the vehicle.
+                        if not state.orbitAligned then
+                            local heading = Spring.GetUnitHeading(unitID)
+                            if heading then
+                                local angle = heading * (2 * math.pi / 65536)
+                                local tangentX, tangentZ = -nz * state.side, nx * state.side
+                                if math.sin(angle) * tangentX + math.cos(angle) * tangentZ < 0 then
+                                    state.side = -state.side
+                                end
+                                state.orbitAligned = true
+                            end
+                        end
                         local desired = range * 0.72
                         local radial = max(-0.65, min(0.65, (distance - desired) / max(desired, 1)))
                         local stride = max(110, min(240, range * 0.35))
@@ -211,22 +224,16 @@ function gadget:GameFrame(frame)
                     end
 
                 elseif profile == "pass" then
-                    -- Savannah Master: commit to a forward pass beyond the
-                    -- target, then extend and reacquire for another approach.
-                    local stride = max(170, min(360, range * 0.95))
+                    -- Savannah Master: short, committed drive-by, then turn back.
+                    -- Do not continuously extend the goal away from the target.
+                    local stride = max(90, min(170, range * 0.48))
                     if state.phase == "pass" and state.passX then
                         local remaining = Distance(x, z, state.passX, state.passZ)
-                        if remaining < 65 then
-                            state.phase = "extend"
+                        if remaining < 55 then
+                            state.phase = "approach"
                             state.passX, state.passZ = nil, nil
                         else
                             Goal(unitID, state.passX, y, state.passZ, 24)
-                        end
-                    end
-                    if state.phase == "extend" then
-                        if distance > range * 1.20 then state.phase = "approach" end
-                        if state.phase == "extend" then
-                            Goal(unitID, x - nx * stride, y, z - nz * stride, 32)
                         end
                     end
                     if state.phase == "approach" then
