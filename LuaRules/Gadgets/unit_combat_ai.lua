@@ -1,10 +1,10 @@
--- MCM Combat AI r10: general vehicle tactical movement prototype.
+-- MCM Combat AI r11: general vehicle tactical movement prototype.
 -- Authors: zvero + ChatGPT
 -- Scope: all vehicle-class units; explicit unqueued unit Attack only.
 -- Native Move/Stop/Patrol/Fight and manually set targets retain priority.
 function gadget:GetInfo()
     return {
-        name = "MCM Combat AI r10",
+        name = "MCM Combat AI r11",
         desc = "Experimental weapon-aware vehicle engagement manoeuvres",
         author = "zvero + ChatGPT",
         date = "2026-10-08",
@@ -24,7 +24,7 @@ local diagnostics = {}
 local function Debug(unitID, msg)
     if diagnostics[unitID] ~= msg then
         diagnostics[unitID] = msg
-        Spring.Echo("[MCM Combat AI r10] unit " .. unitID .. ": " .. msg)
+        Spring.Echo("[MCM Combat AI r11] unit " .. unitID .. ": " .. msg)
     end
 end
 local eligible = {}
@@ -78,7 +78,7 @@ for defID, ud in pairs(UnitDefs) do
 end
 
 function gadget:Initialize()
-    Spring.Echo("[MCM Combat AI r10] initialized; eligible UnitDefs=" .. matched .. " (hold=" .. profileCounts.hold .. ", circle=" .. profileCounts.circle .. ", hybrid=" .. profileCounts.hybrid .. ")")
+    Spring.Echo("[MCM Combat AI r11] initialized; eligible UnitDefs=" .. matched .. " (hold=" .. profileCounts.hold .. ", circle=" .. profileCounts.circle .. ", hybrid=" .. profileCounts.hybrid .. ")")
     for _, unitID in ipairs(Spring.GetAllUnits()) do
         local defID = Spring.GetUnitDefID(unitID)
         if eligible[defID] then Debug(unitID, "eligible unit initialized") end
@@ -248,15 +248,23 @@ function gadget:GameFrame(frame)
                             z + (nx * state.side + nz * radial) * stride,
                             24)
                     end
+                    if profile == "hybrid" and state.phase == "orbit"
+                        and state.orbitUntil and frame >= state.orbitUntil then
+                        state.phase = "approach"
+                        state.orbitUntil = nil
+                    end
 
-                elseif profile == "pass" then
+                elseif profile == "pass" or profile == "hybrid" then
                     -- Savannah Master: short, committed drive-by, then turn back.
                     -- Do not continuously extend the goal away from the target.
                     local stride = max(90, min(170, range * 0.48))
                     if state.phase == "pass" and state.passX then
                         local remaining = Distance(x, z, state.passX, state.passZ)
                         if remaining < 55 then
-                            state.phase = "approach"
+                            state.phase = profile == "hybrid" and "orbit" or "approach"
+                            if profile == "hybrid" then
+                                state.orbitUntil = frame + (state.forwardArcs and 75 or 150)
+                            end
                             state.passX, state.passZ = nil, nil
                         else
                             Goal(unitID, state.passX, y, state.passZ, 24)
