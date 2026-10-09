@@ -1,10 +1,10 @@
--- MCM Combat AI r8: general vehicle tactical movement prototype.
+-- MCM Combat AI r9: general vehicle tactical movement prototype.
 -- Authors: zvero + ChatGPT
 -- Scope: all vehicle-class units; explicit unqueued unit Attack only.
 -- Native Move/Stop/Patrol/Fight and manually set targets retain priority.
 function gadget:GetInfo()
     return {
-        name = "MCM Combat AI r8",
+        name = "MCM Combat AI r9",
         desc = "Experimental weapon-aware vehicle engagement manoeuvres",
         author = "zvero + ChatGPT",
         date = "2026-10-08",
@@ -24,14 +24,20 @@ local diagnostics = {}
 local function Debug(unitID, msg)
     if diagnostics[unitID] ~= msg then
         diagnostics[unitID] = msg
-        Spring.Echo("[MCM Combat AI r8] unit " .. unitID .. ": " .. msg)
+        Spring.Echo("[MCM Combat AI r9] unit " .. unitID .. ": " .. msg)
     end
 end
 local eligible = {}
 local matched = 0
 
--- Use the resolved baseclass rather than display/internal chassis names.
--- Classification is provisional until weapon/mobility-aware tactics are added.
+-- Classify all mobile vehicle UnitDefs. Explicit chassis profiles take
+-- precedence over provisional mobility-based defaults.
+local profileOverrides = {
+    pegasus = "circle",
+    savannah = "pass",
+    mars = "hold",
+}
+local profileCounts = {hold = 0, circle = 0, pass = 0}
 for defID, ud in pairs(UnitDefs) do
     local cp = ud.customParams or ud.customparams or {}
     if cp.baseclass == "vehicle" and ud.canMove and not ud.canFly then
@@ -40,13 +46,17 @@ for defID, ud in pairs(UnitDefs) do
             (ud.movementClass and string.lower(ud.movementClass):find("hover"))
         local speed = tonumber(cp.speed) or 0
         local profile = hover and (speed >= 100 and "pass" or "circle") or "hold"
+        local internalName = string.lower(tostring(ud.unitname or ""))
+        local chassis = internalName:match("^[^_]+_(.+)$") or internalName
+        profile = profileOverrides[chassis] or profile
         eligible[defID] = profile
+        profileCounts[profile] = profileCounts[profile] + 1
         matched = matched + 1
     end
 end
 
 function gadget:Initialize()
-    Spring.Echo("[MCM Combat AI r8] initialized; eligible UnitDefs=" .. matched)
+    Spring.Echo("[MCM Combat AI r9] initialized; eligible UnitDefs=" .. matched .. " (hold=" .. profileCounts.hold .. ", circle=" .. profileCounts.circle .. ", pass=" .. profileCounts.pass .. ")")
     for _, unitID in ipairs(Spring.GetAllUnits()) do
         local defID = Spring.GetUnitDefID(unitID)
         if eligible[defID] then Debug(unitID, "eligible unit initialized") end
