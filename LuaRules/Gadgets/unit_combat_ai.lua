@@ -1,10 +1,10 @@
--- MCM Combat AI r14: general vehicle tactical movement prototype.
+-- MCM Combat AI r15: general vehicle tactical movement prototype.
 -- Authors: zvero + ChatGPT
 -- Scope: all vehicle-class units; explicit unqueued unit Attack only.
 -- Native Move/Stop/Patrol/Fight and manually set targets retain priority.
 function gadget:GetInfo()
     return {
-        name = "MCM Combat AI r14",
+        name = "MCM Combat AI r15",
         desc = "Experimental weapon-aware vehicle engagement manoeuvres",
         author = "zvero + ChatGPT",
         date = "2026-10-08",
@@ -20,11 +20,12 @@ local sqrt, abs, max, min = math.sqrt, math.abs, math.max, math.min
 local sin, cos, atan2 = math.sin, math.cos, math.atan2
 local UPDATE = 15
 local states = {}
+local stopBlocked = {}
 local diagnostics = {}
 local function Debug(unitID, msg)
     if diagnostics[unitID] ~= msg then
         diagnostics[unitID] = msg
-        Spring.Echo("[MCM Combat AI r14] unit " .. unitID .. ": " .. msg)
+        Spring.Echo("[MCM Combat AI r15] unit " .. unitID .. ": " .. msg)
     end
 end
 local eligible = {}
@@ -73,7 +74,7 @@ local function ChooseManoeuvre(unitID, state, frame)
 end
 
 function gadget:Initialize()
-    Spring.Echo("[MCM Combat AI r14] initialized; eligible UnitDefs=" .. matched .. " (ground=" .. profileCounts.ground .. ", hover=" .. profileCounts.hover .. ")")
+    Spring.Echo("[MCM Combat AI r15] initialized; eligible UnitDefs=" .. matched .. " (ground=" .. profileCounts.ground .. ", hover=" .. profileCounts.hover .. ")")
     for _, unitID in ipairs(Spring.GetAllUnits()) do
         local defID = Spring.GetUnitDefID(unitID)
         if eligible[defID] then Debug(unitID, "eligible unit initialized") end
@@ -139,6 +140,32 @@ local function Goal(unitID, x, y, z, radius)
     Spring.SetUnitMoveGoal(unitID, x, y, z, radius or 24)
 end
 
+local function Idle(unitID)
+    local orders = Spring.GetUnitCommands(unitID, 1)
+    return orders and #orders == 0
+end
+
+local function AutoTarget(unitID, defID, range)
+    local x, _, z = Spring.GetUnitPosition(unitID)
+    if not x then return nil end
+    local nearest, nearestDistance = nil, range * range
+    local candidates = Spring.GetUnitsInCylinder(x, z, range)
+    for i = 1, #candidates do
+        local enemy = candidates[i]
+        if enemy ~= unitID and SeenEnemy(unitID, enemy) then
+            local ex, _, ez = Spring.GetUnitPosition(enemy)
+            if ex then
+                local dx, dz = ex - x, ez - z
+                local d = dx * dx + dz * dz
+                if d < nearestDistance then
+                    nearest, nearestDistance = enemy, d
+                end
+            end
+        end
+    end
+    return nearest
+end
+
 local function HasManualTarget(unitID)
     local list = GG.getUnitTargetList and GG.getUnitTargetList(unitID)
     return list and #list > 0
@@ -148,14 +175,18 @@ function gadget:AllowCommand(unitID, defID, teamID, cmdID, params, opts)
     if not eligible[defID] then return true end
     opts = opts or {}
     if cmdID == CMD.MOVE_STATE then
+        stopBlocked[unitID] = nil
         if params and params[1] ~= 1 then Clear(unitID, true) end
         return true
     end
     -- Never interpret engine/internal commands or queued waypoints as fresh
     -- tactical orders. A player's direct orders revoke the tactical objective.
     if opts.internal or opts.shift then return true end
+    if cmdID == CMD.STOP then stopBlocked[unitID] = true
+    elseif cmdID ~= CMD.ATTACK then stopBlocked[unitID] = nil end
     if cmdID == CMD.ATTACK and params and #params == 1 and CanSteer(unitID)
         and SeenEnemy(unitID, params[1]) and not HasManualTarget(unitID) then
+        stopBlocked[unitID] = nil
         local range = EffectiveRange(unitID, defID, params[1])
         if range then
             states[unitID] = {
@@ -185,10 +216,36 @@ end
 
 function gadget:GameFrame(frame)
     if frame % UPDATE ~= 0 then return end
+    if frame % 30 == 0 then
+        for _, unitID in ipairs(Spring.GetAllUnits()) do
+            if not states[unitID] and not stopBlocked[unitID] then
+                local defID = Spring.GetUnitDefID(unitID)
+                if eligible[defID] and CanSteer(unitID) and Idle(unitID)
+                    and not HasManualTarget(unitID) then
+                    local range = EffectiveRange(unitID, defID)
+                    local enemy = range and AutoTarget(unitID, defID, range)
+                    if enemy then
+                        states[unitID] = {
+                            target = enemy, range = range, automatic = true,
+                            mobility = eligible[defID], manoeuvre = nil,
+                            sightRange = UnitDefs[defID].sightDistance or 0,
+                            phase = "approach", transitions = 0,
+                            side = (unitID % 2 == 0) and 1 or -1,
+                            orbitAligned = false,
+                        }
+                        ChooseManoeuvre(unitID, states[unitID], frame)
+                        Debug(unitID, "auto-engaged target " .. enemy)
+                    end
+                end
+            end
+        end
+    end
     for unitID, state in pairs(states) do
         local defID = Spring.GetUnitDefID(unitID)
         if not defID or Spring.GetUnitIsDead(unitID)
             or not SeenEnemy(unitID, state.target) then
+            Clear(unitID, true)
+        elseif state.automatic and (not Idle(unitID) or stopBlocked[unitID]) then
             Clear(unitID, true)
         elseif CanSteer(unitID) and not HasManualTarget(unitID) then
             local x, y, z = Spring.GetUnitPosition(unitID)
