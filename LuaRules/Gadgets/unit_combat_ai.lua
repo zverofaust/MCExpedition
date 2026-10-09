@@ -1,10 +1,10 @@
--- MCM Combat AI r3: limited vehicle tactical movement prototype.
+-- MCM Combat AI r4: limited vehicle tactical movement prototype.
 -- Authors: zvero + ChatGPT
 -- Scope: Mars, Pegasus and Savannah Master only; explicit unqueued unit Attack only.
 -- Native Move/Stop/Patrol/Fight and manually set targets retain priority.
 function gadget:GetInfo()
     return {
-        name = "MCM Combat AI r3",
+        name = "MCM Combat AI r4",
         desc = "Experimental weapon-aware vehicle engagement manoeuvres",
         author = "zvero + ChatGPT",
         date = "2026-10-08",
@@ -24,10 +24,10 @@ local diagnostics = {}
 local function Debug(unitID, msg)
     if diagnostics[unitID] ~= msg then
         diagnostics[unitID] = msg
-        Spring.Echo("[MCM Combat AI r3] unit " .. unitID .. ": " .. msg)
+        Spring.Echo("[MCM Combat AI r4] unit " .. unitID .. ": " .. msg)
     end
 end
-local eligible = {}
+local eligible = {}\nlocal matched = 0
 
 for defID, ud in pairs(UnitDefs) do
     local cp = ud.customParams or {}
@@ -39,7 +39,7 @@ for defID, ud in pairs(UnitDefs) do
     end
 end
 
-local function Distance(x, z, tx, tz)
+function gadget:Initialize()\n    Spring.Echo("[MCM Combat AI r4] initialized; eligible UnitDefs=" .. matched)\n    for _, unitID in ipairs(Spring.GetAllUnits()) do\n        local defID = Spring.GetUnitDefID(unitID)\n        if eligible[defID] then Debug(unitID, "eligible unit initialized") end\n    end\nend\n\nfunction gadget:UnitCreated(unitID, defID)\n    if eligible[defID] then Debug(unitID, "eligible unit created") end\nend\n\nlocal function Distance(x, z, tx, tz)
     local dx, dz = tx - x, tz - z
     return sqrt(dx * dx + dz * dz), dx, dz
 end
