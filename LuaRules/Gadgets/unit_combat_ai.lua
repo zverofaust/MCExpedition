@@ -1,10 +1,10 @@
--- MCM Combat AI r9: general vehicle tactical movement prototype.
+-- MCM Combat AI r10: general vehicle tactical movement prototype.
 -- Authors: zvero + ChatGPT
 -- Scope: all vehicle-class units; explicit unqueued unit Attack only.
 -- Native Move/Stop/Patrol/Fight and manually set targets retain priority.
 function gadget:GetInfo()
     return {
-        name = "MCM Combat AI r9",
+        name = "MCM Combat AI r10",
         desc = "Experimental weapon-aware vehicle engagement manoeuvres",
         author = "zvero + ChatGPT",
         date = "2026-10-08",
@@ -24,39 +24,61 @@ local diagnostics = {}
 local function Debug(unitID, msg)
     if diagnostics[unitID] ~= msg then
         diagnostics[unitID] = msg
-        Spring.Echo("[MCM Combat AI r9] unit " .. unitID .. ": " .. msg)
+        Spring.Echo("[MCM Combat AI r10] unit " .. unitID .. ": " .. msg)
     end
 end
 local eligible = {}
 local matched = 0
 
--- Classify all mobile vehicle UnitDefs. Explicit chassis profiles take
--- precedence over provisional mobility-based defaults.
-local profileOverrides = {
-    pegasus = "circle",
-    savannah = "pass",
-    mars = "hold",
-}
-local profileCounts = {hold = 0, circle = 0, pass = 0}
+-- Classify from movement type, effective weapon range and firing arcs.
+-- All hovercraft alternate orbiting and short attack passes.
+local profileCounts = {hold = 0, circle = 0, hybrid = 0}
+local function WeaponTraits(ud)
+    local weightedRange, weightTotal, forwardWeight, broadWeight = 0, 0, 0, 0
+    for _, mount in ipairs(ud.weapons or {}) do
+        local wd = WeaponDefs[mount.weaponDef]
+        if wd and wd.range and wd.range > 0 and not wd.manualFire then
+            local weight = max(1, (wd.damages and (wd.damages[0] or wd.damages[1])) or 1)
+            local arc = tonumber(mount.maxAngleDif or mount.maxangledif or wd.maxAngleDif or wd.maxangledif)
+            local dir = mount.mainDir or mount.maindir
+            local dirString = dir and tostring(dir) or ""
+            -- Narrow arcs and explicit forward-facing mounts favour passes.
+            if arc and arc <= 70 and (dirString == "" or dirString:match("^0[%s,]+0[%s,]+1")) then
+                forwardWeight = forwardWeight + weight
+            else
+                broadWeight = broadWeight + weight
+            end
+            weightedRange = weightedRange + wd.range * weight
+            weightTotal = weightTotal + weight
+        end
+    end
+    return weightTotal > 0 and weightedRange / weightTotal or 0,
+        forwardWeight > broadWeight
+end
 for defID, ud in pairs(UnitDefs) do
     local cp = ud.customParams or ud.customparams or {}
     if cp.baseclass == "vehicle" and ud.canMove and not ud.canFly then
-        local hover = (ud.moveDef and ud.moveDef.name and
-            string.lower(ud.moveDef.name):find("hover")) or
-            (ud.movementClass and string.lower(ud.movementClass):find("hover"))
-        local speed = tonumber(cp.speed) or 0
-        local profile = hover and (speed >= 100 and "pass" or "circle") or "hold"
-        local internalName = string.lower(tostring(ud.unitname or ""))
-        local chassis = internalName:match("^[^_]+_(.+)$") or internalName
-        profile = profileOverrides[chassis] or profile
-        eligible[defID] = profile
+        local movement = string.lower(tostring((ud.moveDef and ud.moveDef.name) or ud.movementClass or ""))
+        local hover = movement:find("hover") ~= nil
+        local wheeled = cp.wheels == true or cp.wheels == "true" or cp.wheels == "1"
+        local weaponRange, forwardArcs = WeaponTraits(ud)
+        local speed = tonumber(cp.speed) or ((ud.speed or 0) * 30)
+        local profile
+        if hover then
+            profile = "hybrid"
+        elseif wheeled and speed >= 75 and weaponRange > 0 and weaponRange < 550 and not forwardArcs then
+            profile = "circle"
+        else
+            profile = "hold"
+        end
+        eligible[defID] = {profile = profile, forwardArcs = forwardArcs, weaponRange = weaponRange}
         profileCounts[profile] = profileCounts[profile] + 1
         matched = matched + 1
     end
 end
 
 function gadget:Initialize()
-    Spring.Echo("[MCM Combat AI r9] initialized; eligible UnitDefs=" .. matched .. " (hold=" .. profileCounts.hold .. ", circle=" .. profileCounts.circle .. ", pass=" .. profileCounts.pass .. ")")
+    Spring.Echo("[MCM Combat AI r10] initialized; eligible UnitDefs=" .. matched .. " (hold=" .. profileCounts.hold .. ", circle=" .. profileCounts.circle .. ", hybrid=" .. profileCounts.hybrid .. ")")
     for _, unitID in ipairs(Spring.GetAllUnits()) do
         local defID = Spring.GetUnitDefID(unitID)
         if eligible[defID] then Debug(unitID, "eligible unit initialized") end
@@ -143,11 +165,12 @@ function gadget:AllowCommand(unitID, defID, teamID, cmdID, params, opts)
         if range then
             states[unitID] = {
                 target = params[1], range = range,
-                profile = eligible[defID], phase = "approach",
+                profile = eligible[defID].profile, phase = "approach",
+                forwardArcs = eligible[defID].forwardArcs, orbitUntil = nil,
                 side = (unitID % 2 == 0) and 1 or -1,
                 passX = nil, passZ = nil, orbitAligned = false,
             }
-            Debug(unitID, "acquired " .. eligible[defID] .. " target " .. params[1] .. " at range " .. math.floor(range))
+            Debug(unitID, "acquired " .. eligible[defID].profile .. " target " .. params[1] .. " at range " .. math.floor(range))
             -- Consume native Attack so it cannot override manoeuvre goals.
             return false
         end
@@ -195,14 +218,14 @@ function gadget:GameFrame(frame)
                         Goal(unitID, x, y, z, 16)
                     end
 
-                elseif profile == "circle" then
+                elseif profile == "circle" or (profile == "hybrid" and state.phase == "orbit") then
                     -- Pegasus: orbit the target with a small radial correction.
                     -- Tangential goals change gradually, using native hover pathing.
                     if distance > range * 1.30 then
                         state.phase = "approach"
                         Goal(unitID, tx, ty, tz, range * 0.75)
                     else
-                        state.phase = "circle"
+                        if profile == "circle" then state.phase = "circle" end
                         -- Align the initial orbit direction with the hull heading
                         -- so the first tangential goal is not behind the vehicle.
                         if not state.orbitAligned then
