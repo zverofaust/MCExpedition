@@ -27,7 +27,8 @@ local function Debug(unitID, msg)
         Spring.Echo("[MCM Combat AI r4] unit " .. unitID .. ": " .. msg)
     end
 end
-local eligible = {}\nlocal matched = 0
+local eligible = {}
+local matched = 0
 
 for defID, ud in pairs(UnitDefs) do
     local cp = ud.customParams or {}
@@ -39,7 +40,19 @@ for defID, ud in pairs(UnitDefs) do
     end
 end
 
-function gadget:Initialize()\n    Spring.Echo("[MCM Combat AI r4] initialized; eligible UnitDefs=" .. matched)\n    for _, unitID in ipairs(Spring.GetAllUnits()) do\n        local defID = Spring.GetUnitDefID(unitID)\n        if eligible[defID] then Debug(unitID, "eligible unit initialized") end\n    end\nend\n\nfunction gadget:UnitCreated(unitID, defID)\n    if eligible[defID] then Debug(unitID, "eligible unit created") end\nend\n\nlocal function Distance(x, z, tx, tz)
+function gadget:Initialize()
+    Spring.Echo("[MCM Combat AI r4] initialized; eligible UnitDefs=" .. matched)
+    for _, unitID in ipairs(Spring.GetAllUnits()) do
+        local defID = Spring.GetUnitDefID(unitID)
+        if eligible[defID] then Debug(unitID, "eligible unit initialized") end
+    end
+end
+
+function gadget:UnitCreated(unitID, defID)
+    if eligible[defID] then Debug(unitID, "eligible unit created") end
+end
+
+local function Distance(x, z, tx, tz)
     local dx, dz = tx - x, tz - z
     return sqrt(dx * dx + dz * dz), dx, dz
 end
