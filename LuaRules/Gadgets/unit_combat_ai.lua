@@ -1,10 +1,10 @@
--- MCM Combat AI r7: limited vehicle tactical movement prototype.
+-- MCM Combat AI r8: general vehicle tactical movement prototype.
 -- Authors: zvero + ChatGPT
--- Scope: Mars, Pegasus and Savannah Master only; explicit unqueued unit Attack only.
+-- Scope: all vehicle-class units; explicit unqueued unit Attack only.
 -- Native Move/Stop/Patrol/Fight and manually set targets retain priority.
 function gadget:GetInfo()
     return {
-        name = "MCM Combat AI r6",
+        name = "MCM Combat AI r8",
         desc = "Experimental weapon-aware vehicle engagement manoeuvres",
         author = "zvero + ChatGPT",
         date = "2026-10-08",
@@ -24,36 +24,29 @@ local diagnostics = {}
 local function Debug(unitID, msg)
     if diagnostics[unitID] ~= msg then
         diagnostics[unitID] = msg
-        Spring.Echo("[MCM Combat AI r7] unit " .. unitID .. ": " .. msg)
+        Spring.Echo("[MCM Combat AI r8] unit " .. unitID .. ": " .. msg)
     end
 end
 local eligible = {}
 local matched = 0
 
--- UnitDefNames keys are the canonical internal names. The UnitDefs display
--- fields are not reliable for identifying faction-prefixed vehicle variants.
-local inspected = 0
-for internalName, ud in pairs(UnitDefNames) do
-    inspected = inspected + 1
-    local key = string.lower(tostring(internalName))
-    local profile
-    if key:match("^%a+_mars$") or key == "mars" then
-        profile = "hold"
-    elseif key:match("^%a+_pegasus$") or key == "pegasus" then
-        profile = "circle"
-    elseif key:match("^%a+_savannah$") or key == "savannah" then
-        profile = "pass"
-    end
-    if profile and ud.id then
-        eligible[ud.id] = profile
+-- Use the resolved baseclass rather than display/internal chassis names.
+-- Classification is provisional until weapon/mobility-aware tactics are added.
+for defID, ud in pairs(UnitDefs) do
+    local cp = ud.customParams or ud.customparams or {}
+    if cp.baseclass == "vehicle" and ud.canMove and not ud.canFly then
+        local hover = (ud.moveDef and ud.moveDef.name and
+            string.lower(ud.moveDef.name):find("hover")) or
+            (ud.movementClass and string.lower(ud.movementClass):find("hover"))
+        local speed = tonumber(cp.speed) or 0
+        local profile = hover and (speed >= 100 and "pass" or "circle") or "hold"
+        eligible[defID] = profile
         matched = matched + 1
-        Spring.Echo("[MCM Combat AI r7] registered " .. key .. " id=" .. ud.id .. " as " .. profile)
     end
 end
-Spring.Echo("[MCM Combat AI r7] UnitDefNames entries inspected=" .. inspected)
 
 function gadget:Initialize()
-    Spring.Echo("[MCM Combat AI r7] initialized; eligible UnitDefs=" .. matched)
+    Spring.Echo("[MCM Combat AI r8] initialized; eligible UnitDefs=" .. matched)
     for _, unitID in ipairs(Spring.GetAllUnits()) do
         local defID = Spring.GetUnitDefID(unitID)
         if eligible[defID] then Debug(unitID, "eligible unit initialized") end
