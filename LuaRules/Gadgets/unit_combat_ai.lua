@@ -1,10 +1,10 @@
--- MCM Combat AI r5: limited vehicle tactical movement prototype.
+-- MCM Combat AI r6: limited vehicle tactical movement prototype.
 -- Authors: zvero + ChatGPT
 -- Scope: Mars, Pegasus and Savannah Master only; explicit unqueued unit Attack only.
 -- Native Move/Stop/Patrol/Fight and manually set targets retain priority.
 function gadget:GetInfo()
     return {
-        name = "MCM Combat AI r5",
+        name = "MCM Combat AI r6",
         desc = "Experimental weapon-aware vehicle engagement manoeuvres",
         author = "zvero + ChatGPT",
         date = "2026-10-08",
@@ -24,34 +24,36 @@ local diagnostics = {}
 local function Debug(unitID, msg)
     if diagnostics[unitID] ~= msg then
         diagnostics[unitID] = msg
-        Spring.Echo("[MCM Combat AI r5] unit " .. unitID .. ": " .. msg)
+        Spring.Echo("[MCM Combat AI r6] unit " .. unitID .. ": " .. msg)
     end
 end
 local eligible = {}
 local matched = 0
 
--- Match faction-prefixed internal UnitDef keys, independent of display names
--- and inherited customParams (which may be replaced by variant definitions).
-for defID, ud in pairs(UnitDefs) do
-    local key = string.lower(tostring(ud.name or "")):gsub("[^%w]", "")
-    local internal = string.lower(tostring(ud.unitname or ""))
+-- UnitDefNames keys are the canonical internal names. The UnitDefs display
+-- fields are not reliable for identifying faction-prefixed vehicle variants.
+local inspected = 0
+for internalName, ud in pairs(UnitDefNames) do
+    inspected = inspected + 1
+    local key = string.lower(tostring(internalName))
     local profile
-    if key == "mars" or internal:match("mars$") then
+    if key:match("^%a+_mars$") or key == "mars" then
         profile = "hold"
-    elseif key == "pegasus" or internal:match("pegasus$") then
+    elseif key:match("^%a+_pegasus$") or key == "pegasus" then
         profile = "circle"
-    elseif key == "savannahmaster" or internal:match("savannah$") then
+    elseif key:match("^%a+_savannah$") or key == "savannah" then
         profile = "pass"
     end
-    if profile then
-        eligible[defID] = profile
+    if profile and ud.id then
+        eligible[ud.id] = profile
         matched = matched + 1
-        Spring.Echo("[MCM Combat AI r5] registered " .. tostring(ud.unitname) .. " / " .. tostring(ud.name) .. " as " .. profile)
+        Spring.Echo("[MCM Combat AI r6] registered " .. key .. " id=" .. ud.id .. " as " .. profile)
     end
 end
+Spring.Echo("[MCM Combat AI r6] UnitDefNames entries inspected=" .. inspected)
 
 function gadget:Initialize()
-    Spring.Echo("[MCM Combat AI r5] initialized; eligible UnitDefs=" .. matched)
+    Spring.Echo("[MCM Combat AI r6] initialized; eligible UnitDefs=" .. matched)
     for _, unitID in ipairs(Spring.GetAllUnits()) do
         local defID = Spring.GetUnitDefID(unitID)
         if eligible[defID] then Debug(unitID, "eligible unit initialized") end
