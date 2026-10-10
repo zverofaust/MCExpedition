@@ -1,10 +1,10 @@
--- MCM Vehicle ROE r25: native movement, defensive engagement prototype.
+-- MCM Vehicle ROE r26: native movement, defensive engagement prototype.
 -- Authors: zvero + ChatGPT
 -- Vehicle manoeuvres intentionally disabled. Native engine handles firing and aiming.
--- Shared Maneuver/Roam pursuit and return for idle vehicles; native firing retained.
+-- Safety rollback: disable experimental pursuit goals pending lifecycle investigation.
 function gadget:GetInfo()
     return {
-        name = "MCM Vehicle ROE r25",
+        name = "MCM Vehicle ROE r26",
         desc = "Lightweight vehicle engagement policy; native combat movement",
         author = "zvero + ChatGPT",
         date = "2026-10-10",
@@ -25,9 +25,6 @@ local cursor = 1
 local reported = {}
 local SCAN_INTERVAL = 30
 local SCAN_BATCH = 48
-local MOVE_UPDATE = 15
-local ARRIVAL_RADIUS = 55
-local active = {}
 local spSetUnitTarget = Spring.SetUnitTarget
 local roeNames = {[0] = "hold", [1] = "maneuver", [2] = "roam"}
 
@@ -75,7 +72,6 @@ local function Add(unitID, defID)
 end
 
 local function Remove(unitID)
-    active[unitID] = nil
     tracked[unitID], stopped[unitID], reported[unitID], engagements[unitID] = nil, nil, nil, nil
     local index = rosterIndex[unitID]
     if not index then return end
@@ -100,75 +96,6 @@ local function CanMonitor(unitID)
     return state and roeNames[state.movestate] ~= nil
 end
 
-local function CanSteer(unitID)
-    if Spring.GetUnitTransporter(unitID) then return false end
-    if GG.turning and GG.turning[unitID] then return false end
-    if Spring.MoveCtrl and Spring.MoveCtrl.IsEnabled and Spring.MoveCtrl.IsEnabled(unitID) then return false end
-    return true
-end
-
-local function StopSteering(unitID, e)
-    if e and e.steering and Spring.ClearUnitGoal then Spring.ClearUnitGoal(unitID) end
-    if e then e.steering = nil end
-end
-
-local function MoveTo(unitID, e, x, z, radius)
-    if not CanSteer(unitID) then return end
-    Spring.SetUnitMoveGoal(unitID, x, Spring.GetGroundHeight(x, z), z, radius)
-    e.steering = true
-end
-
-local function ReturnHome(unitID, e)
-    if e.phase ~= "return" then
-        e.phase = "return"
-        Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID .. " returning to origin")
-    end
-    MoveTo(unitID, e, e.originX, e.originZ, ARRIVAL_RADIUS)
-end
-
-local function UpdateMovement(unitID, e, target, frame)
-    if e.mode == 0 then return end
-    local x, _, z = Spring.GetUnitPosition(unitID)
-    if not x then return end
-    local ox, oz = x - e.originX, z - e.originZ
-    local originDist = math.sqrt(ox * ox + oz * oz)
-    if e.phase == "return" then
-        if originDist <= ARRIVAL_RADIUS then
-            StopSteering(unitID, e)
-            engagements[unitID], active[unitID] = nil, nil
-            Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID .. " returned to origin")
-        else
-            ReturnHome(unitID, e)
-        end
-        return
-    end
-    local timeout = Config.roe[roeNames[e.mode]].inactivitySeconds * 30
-    if frame - e.lastContactFrame >= timeout or originDist >= e.leash then
-        ReturnHome(unitID, e)
-        return
-    end
-    if not target then return end
-    local tx, _, tz = Spring.GetUnitPosition(target)
-    if not tx then return end
-    local dx, dz = tx - x, tz - z
-    local dist = math.sqrt(dx * dx + dz * dz)
-    local weapon = ranges[Spring.GetUnitDefID(unitID)].weapon
-    if dist <= weapon * 0.9 then
-        StopSteering(unitID, e)
-        return
-    end
-    -- Stop short of the target and never set a goal outside the original leash.
-    local desired = math.min(dist - weapon * 0.85, math.max(0, e.leash - originDist))
-    if desired <= 0 then return end
-    local gx, gz = x + dx / dist * desired, z + dz / dist * desired
-    local gdx, gdz = gx - e.originX, gz - e.originZ
-    local gd = math.sqrt(gdx * gdx + gdz * gdz)
-    if gd > e.leash then
-        gx, gz = e.originX + gdx / gd * e.leash, e.originZ + gdz / gd * e.leash
-    end
-    MoveTo(unitID, e, gx, gz, math.max(30, weapon * 0.1))
-end
-
 local function Check(unitID)
     local defID = Spring.GetUnitDefID(unitID)
     if not defID or not eligible[defID] then return end
@@ -184,22 +111,14 @@ local function Check(unitID)
     local frame = Spring.GetGameFrame()
     local engagement = engagements[unitID]
     local eligibleNow = not blocked and can and not manual and roeNames[mode] ~= nil
-    if engagement and engagement.phase == "return" then
-        -- Preserve the original origin throughout the return journey.
-        target = nil
-    end
     if engagement and (not eligibleNow or engagement.mode ~= mode) then
-        StopSteering(unitID, engagement)
-        engagements[unitID], active[unitID] = nil, nil
-        Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID
+        engagements[unitID] = nil
+        Spring.Echo("[MCM Vehicle ROE r26] unit " .. unitID
             .. " defensive engagement cancelled (control state changed)")
         engagement = nil
-    elseif engagement and engagement.phase == "return" then
-        -- Return is terminal for this engagement: no contact timeout or reacquisition.
-        -- UpdateMovement owns arrival detection and cleanup.
     elseif engagement and target then
         if engagement.contactLost then
-            Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID .. " contact restored")
+            Spring.Echo("[MCM Vehicle ROE r26] unit " .. unitID .. " contact restored")
         end
         engagement.target = target
         engagement.lastContactFrame = frame
@@ -207,17 +126,13 @@ local function Check(unitID)
     elseif engagement and not target then
         if not engagement.contactLost then
             engagement.contactLost = true
-            Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID .. " contact lost; holding engagement")
+            Spring.Echo("[MCM Vehicle ROE r26] unit " .. unitID .. " contact lost; holding engagement")
         end
         if frame - engagement.lastContactFrame >= Config.roe[roeNames[mode]].inactivitySeconds * 30 then
-            if mode == 0 then
-                engagements[unitID], active[unitID] = nil, nil
-            else
-                ReturnHome(unitID, engagement)
-            end
-            Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID
+            engagements[unitID] = nil
+            Spring.Echo("[MCM Vehicle ROE r26] unit " .. unitID
                 .. " defensive engagement ended (contact timeout)")
-            if mode == 0 then engagement = nil end
+            engagement = nil
         end
     end
     -- Explicitly hand off observed targets to native weapon aiming. This does not
@@ -238,15 +153,11 @@ local function Check(unitID)
                 target = target, started = frame, lastContactFrame = frame,
                 contactLost = false,
             }
-            if mode ~= 0 and commandID == nil then active[unitID] = true end
-            Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID
+            Spring.Echo("[MCM Vehicle ROE r26] unit " .. unitID
                 .. " engagement began; ROE=" .. roeNames[mode]
                 .. " acquisition=" .. math.floor(acquisition)
                 .. " leash=" .. math.floor(leash) .. "; origin recorded")
         end
-    end
-    if active[unitID] and engagements[unitID] then
-        UpdateMovement(unitID, engagements[unitID], target, frame)
     end
     -- Diagnostic sampling: command queues no longer block defensive contact; report only when a visible enemy is found, and
     -- only once per change in gate status to avoid per-frame log spam.
@@ -258,7 +169,7 @@ local function Check(unitID)
             .. " stopped=" .. tostring(not not blocked)
         if reported[unitID] ~= reason then
             reported[unitID] = reason
-            Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID
+            Spring.Echo("[MCM Vehicle ROE r26] unit " .. unitID
                 .. " detected enemy " .. target .. " | " .. reason)
         end
         if not blocked and can and not manual then
@@ -274,7 +185,7 @@ end
 function gadget:Initialize()
     local all = Spring.GetAllUnits()
     for i = 1, #all do Add(all[i], Spring.GetUnitDefID(all[i])) end
-    Spring.Echo("[MCM Vehicle ROE r25] initialized; vehicle definitions="
+    Spring.Echo("[MCM Vehicle ROE r26] initialized; vehicle definitions="
         .. (function() local n=0 for _ in pairs(eligible) do n=n+1 end return n end)()
         .. "; registered vehicles=" .. #roster)
 end
@@ -291,9 +202,6 @@ function gadget:AllowCommand(unitID, defID, teamID, cmdID, params, opts)
     if not eligible[defID] then return true end
     opts = opts or {}
     if not opts.internal and not opts.shift then
-        local e = engagements[unitID]
-        if e then StopSteering(unitID, e) end
-        active[unitID] = nil
         if cmdID == CMD.STOP then
             stopped[unitID] = true
             tracked[unitID], engagements[unitID] = nil, nil
@@ -312,26 +220,16 @@ function gadget:AllowCommand(unitID, defID, teamID, cmdID, params, opts)
 end
 
 function gadget:GameFrame(frame)
-    if frame % MOVE_UPDATE == 0 then
-        for unitID in pairs(active) do
-            if rosterIndex[unitID] then
-                Check(unitID)
-            else
-                active[unitID] = nil
-            end
-        end
-    end
     if frame % SCAN_INTERVAL ~= 0 or #roster == 0 then return end
     local batch = math.min(SCAN_BATCH, #roster)
     for _ = 1, batch do
         if cursor > #roster then cursor = 1 end
         local unitID = roster[cursor]
         cursor = cursor + 1
-        if not active[unitID] then Check(unitID) end
+        Check(unitID)
     end
 end
 
 function gadget:Shutdown()
-    for unitID in pairs(active) do StopSteering(unitID, engagements[unitID]) end
-    tracked, stopped, reported, engagements, active = {}, {}, {}, {}, {}
+    tracked, stopped, reported, engagements = {}, {}, {}, {}
 end
