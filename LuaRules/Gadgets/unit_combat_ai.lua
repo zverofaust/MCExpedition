@@ -1,10 +1,10 @@
--- MCM Vehicle ROE r18: native movement, defensive engagement prototype.
+-- MCM Vehicle ROE r19: native movement, defensive engagement prototype.
 -- Authors: zvero + ChatGPT
 -- Vehicle manoeuvres intentionally disabled. Native engine handles firing and aiming.
 -- Only idle Hold Position vehicles are monitored in this initial validation revision.
 function gadget:GetInfo()
     return {
-        name = "MCM Vehicle ROE r18",
+        name = "MCM Vehicle ROE r19",
         desc = "Lightweight vehicle engagement policy; native combat movement",
         author = "zvero + ChatGPT",
         date = "2026-10-10",
@@ -69,9 +69,10 @@ local function Remove(unitID)
     if cursor > #roster then cursor = 1 end
 end
 
-local function Idle(unitID)
+local function FirstCommand(unitID)
     local commands = Spring.GetUnitCommands(unitID, 1)
-    return commands and #commands == 0
+    local command = commands and commands[1]
+    return command and command.id or nil
 end
 
 local function CanMonitor(unitID)
@@ -87,25 +88,25 @@ local function Check(unitID)
     if not defID or not eligible[defID] then return end
     local state = Spring.GetUnitStates(unitID)
     local mode = state and state.movestate
-    local idle = Idle(unitID)
+    local commandID = FirstCommand(unitID)
     local manual = Targeting.HasManualTarget(unitID)
     local can = CanMonitor(unitID)
     local blocked = stopped[unitID]
     local target = Targeting.AutoTarget(unitID, ranges[defID])
-    -- Diagnostic sampling: report only when a visible enemy is found, and
+    -- Diagnostic sampling: command queues no longer block defensive contact; report only when a visible enemy is found, and
     -- only once per change in gate status to avoid per-frame log spam.
     if target then
         local reason = "mode=" .. tostring(mode)
-            .. " idle=" .. tostring(idle)
+            .. " command=" .. tostring(commandID)
             .. " manual=" .. tostring(not not manual)
             .. " canMonitor=" .. tostring(not not can)
             .. " stopped=" .. tostring(not not blocked)
         if reported[unitID] ~= reason then
             reported[unitID] = reason
-            Spring.Echo("[MCM Vehicle ROE r18] unit " .. unitID
+            Spring.Echo("[MCM Vehicle ROE r19] unit " .. unitID
                 .. " detected enemy " .. target .. " | " .. reason)
         end
-        if not blocked and can and idle and not manual then
+        if not blocked and can and not manual then
             tracked[unitID] = target
         else
             tracked[unitID] = nil
@@ -118,7 +119,7 @@ end
 function gadget:Initialize()
     local all = Spring.GetAllUnits()
     for i = 1, #all do Add(all[i], Spring.GetUnitDefID(all[i])) end
-    Spring.Echo("[MCM Vehicle ROE r18] initialized; vehicle definitions="
+    Spring.Echo("[MCM Vehicle ROE r19] initialized; vehicle definitions="
         .. (function() local n=0 for _ in pairs(eligible) do n=n+1 end return n end)()
         .. "; registered vehicles=" .. #roster)
 end
