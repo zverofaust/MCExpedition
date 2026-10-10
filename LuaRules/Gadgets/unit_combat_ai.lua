@@ -1,13 +1,13 @@
--- MCM Combat AI r15: general vehicle tactical movement prototype.
+-- MCM Combat AI r16: modular targeting and ROE configuration foundation.
 -- Authors: zvero + ChatGPT
--- Scope: all vehicle-class units; explicit unqueued unit Attack only.
+-- Scope: vehicle-class units; existing r15 behaviour preserved during extraction.
 -- Native Move/Stop/Patrol/Fight and manually set targets retain priority.
 function gadget:GetInfo()
     return {
-        name = "MCM Combat AI r15",
+        name = "MCM Combat AI r16",
         desc = "Experimental weapon-aware vehicle engagement manoeuvres",
         author = "zvero + ChatGPT",
-        date = "2026-10-08",
+        date = "2026-10-10",
         license = "GPL v2 or later",
         layer = 10,
         enabled = true,
@@ -18,14 +18,16 @@ if not gadgetHandler:IsSyncedCode() then return false end
 
 local sqrt, abs, max, min = math.sqrt, math.abs, math.max, math.min
 local sin, cos, atan2 = math.sin, math.cos, math.atan2
-local UPDATE = 15
+local Config = VFS.Include("LuaRules/Configs/combat_ai/config.lua")
+local Targeting = VFS.Include("LuaRules/Configs/combat_ai/targeting.lua")
+local UPDATE = Config.updateFrames
 local states = {}
 local stopBlocked = {}
 local diagnostics = {}
 local function Debug(unitID, msg)
     if diagnostics[unitID] ~= msg then
         diagnostics[unitID] = msg
-        Spring.Echo("[MCM Combat AI r15] unit " .. unitID .. ": " .. msg)
+        Spring.Echo("[MCM Combat AI r16] unit " .. unitID .. ": " .. msg)
     end
 end
 local eligible = {}
@@ -34,10 +36,7 @@ local matched = 0
 -- Repertoires are based on mobility, not chassis names.
 -- Each manoeuvre is independent; the selector rotates among permitted moves.
 local profileCounts = {ground = 0, hover = 0}
-local repertoires = {
-    ground = {"hold", "circle", "broadside", "approach"},
-    hover = {"circle", "driveby"},
-}
+local repertoires = Config.repertoires
 for defID, ud in pairs(UnitDefs) do
     local cp = ud.customParams or ud.customparams or {}
     if cp.baseclass == "vehicle" and ud.canMove and not ud.canFly then
@@ -97,14 +96,9 @@ local function Clear(unitID, clearTarget)
     end
 end
 
-local function SeenEnemy(unitID, targetID)
-    if not Spring.ValidUnitID(targetID) or Spring.GetUnitIsDead(targetID) then return false end
-    local teamA, teamB = Spring.GetUnitTeam(unitID), Spring.GetUnitTeam(targetID)
-    if not teamA or not teamB or Spring.AreTeamsAllied(teamA, teamB) then return false end
-    local allyTeam = Spring.GetUnitAllyTeam(unitID)
-    local los = allyTeam and Spring.GetUnitLosState(targetID, allyTeam, true)
-    return los and (los % 4 ~= 0)
-end
+local SeenEnemy = Targeting.SeenEnemy
+local AutoTarget = Targeting.AutoTarget
+local HasManualTarget = Targeting.HasManualTarget
 
 local function CanSteer(unitID)
     if Spring.GetUnitTransporter(unitID) then return false end
@@ -143,32 +137,6 @@ end
 local function Idle(unitID)
     local orders = Spring.GetUnitCommands(unitID, 1)
     return orders and #orders == 0
-end
-
-local function AutoTarget(unitID, defID, range)
-    local x, _, z = Spring.GetUnitPosition(unitID)
-    if not x then return nil end
-    local nearest, nearestDistance = nil, range * range
-    local candidates = Spring.GetUnitsInCylinder(x, z, range)
-    for i = 1, #candidates do
-        local enemy = candidates[i]
-        if enemy ~= unitID and SeenEnemy(unitID, enemy) then
-            local ex, _, ez = Spring.GetUnitPosition(enemy)
-            if ex then
-                local dx, dz = ex - x, ez - z
-                local d = dx * dx + dz * dz
-                if d < nearestDistance then
-                    nearest, nearestDistance = enemy, d
-                end
-            end
-        end
-    end
-    return nearest
-end
-
-local function HasManualTarget(unitID)
-    local list = GG.getUnitTargetList and GG.getUnitTargetList(unitID)
-    return list and #list > 0
 end
 
 function gadget:AllowCommand(unitID, defID, teamID, cmdID, params, opts)
@@ -223,7 +191,7 @@ function gadget:GameFrame(frame)
                 if eligible[defID] and CanSteer(unitID) and Idle(unitID)
                     and not HasManualTarget(unitID) then
                     local range = EffectiveRange(unitID, defID)
-                    local enemy = range and AutoTarget(unitID, defID, range)
+                    local enemy = range and AutoTarget(unitID, range)
                     if enemy then
                         states[unitID] = {
                             target = enemy, range = range, automatic = true,
