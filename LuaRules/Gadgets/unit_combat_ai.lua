@@ -1,10 +1,10 @@
--- MCM Vehicle ROE r22: native movement, defensive engagement prototype.
+-- MCM Vehicle ROE r23: native movement, defensive engagement prototype.
 -- Authors: zvero + ChatGPT
 -- Vehicle manoeuvres intentionally disabled. Native engine handles firing and aiming.
 -- Tracks contacts for all three ROE modes; movement and pursuit remain native.
 function gadget:GetInfo()
     return {
-        name = "MCM Vehicle ROE r22",
+        name = "MCM Vehicle ROE r23",
         desc = "Lightweight vehicle engagement policy; native combat movement",
         author = "zvero + ChatGPT",
         date = "2026-10-10",
@@ -25,6 +25,7 @@ local cursor = 1
 local reported = {}
 local SCAN_INTERVAL = 30
 local SCAN_BATCH = 48
+local spSetUnitTarget = Spring.SetUnitTarget
 local roeNames = {[0] = "hold", [1] = "maneuver", [2] = "roam"}
 
 -- Cache longest automatic weapon range and radar range per definition.
@@ -112,12 +113,12 @@ local function Check(unitID)
     local eligibleNow = not blocked and can and not manual and roeNames[mode] ~= nil
     if engagement and (not eligibleNow or engagement.mode ~= mode) then
         engagements[unitID] = nil
-        Spring.Echo("[MCM Vehicle ROE r22] unit " .. unitID
+        Spring.Echo("[MCM Vehicle ROE r23] unit " .. unitID
             .. " defensive engagement cancelled (control state changed)")
         engagement = nil
     elseif engagement and target then
         if engagement.contactLost then
-            Spring.Echo("[MCM Vehicle ROE r22] unit " .. unitID .. " contact restored")
+            Spring.Echo("[MCM Vehicle ROE r23] unit " .. unitID .. " contact restored")
         end
         engagement.target = target
         engagement.lastContactFrame = frame
@@ -125,14 +126,23 @@ local function Check(unitID)
     elseif engagement and not target then
         if not engagement.contactLost then
             engagement.contactLost = true
-            Spring.Echo("[MCM Vehicle ROE r22] unit " .. unitID .. " contact lost; holding engagement")
+            Spring.Echo("[MCM Vehicle ROE r23] unit " .. unitID .. " contact lost; holding engagement")
         end
         if frame - engagement.lastContactFrame >= Config.roe[roeNames[mode]].inactivitySeconds * 30 then
             engagements[unitID] = nil
-            Spring.Echo("[MCM Vehicle ROE r22] unit " .. unitID
+            Spring.Echo("[MCM Vehicle ROE r23] unit " .. unitID
                 .. " defensive engagement ended (contact timeout)")
             engagement = nil
         end
+    end
+    -- Explicitly hand off observed targets to native weapon aiming. This does not
+    -- issue an ATTACK order, so no movement or pursuit is requested.
+    if eligibleNow and target and spSetUnitTarget then
+        if tracked[unitID] ~= target then
+            spSetUnitTarget(unitID, target)
+        end
+    elseif tracked[unitID] and spSetUnitTarget then
+        spSetUnitTarget(unitID, nil)
     end
     if target and not engagement and eligibleNow then
         local x, y, z = Spring.GetUnitPosition(unitID)
@@ -143,7 +153,7 @@ local function Check(unitID)
                 target = target, started = frame, lastContactFrame = frame,
                 contactLost = false,
             }
-            Spring.Echo("[MCM Vehicle ROE r22] unit " .. unitID
+            Spring.Echo("[MCM Vehicle ROE r23] unit " .. unitID
                 .. " engagement began; ROE=" .. roeNames[mode]
                 .. " acquisition=" .. math.floor(acquisition)
                 .. " leash=" .. math.floor(leash) .. "; origin recorded")
@@ -159,7 +169,7 @@ local function Check(unitID)
             .. " stopped=" .. tostring(not not blocked)
         if reported[unitID] ~= reason then
             reported[unitID] = reason
-            Spring.Echo("[MCM Vehicle ROE r22] unit " .. unitID
+            Spring.Echo("[MCM Vehicle ROE r23] unit " .. unitID
                 .. " detected enemy " .. target .. " | " .. reason)
         end
         if not blocked and can and not manual then
@@ -175,7 +185,7 @@ end
 function gadget:Initialize()
     local all = Spring.GetAllUnits()
     for i = 1, #all do Add(all[i], Spring.GetUnitDefID(all[i])) end
-    Spring.Echo("[MCM Vehicle ROE r22] initialized; vehicle definitions="
+    Spring.Echo("[MCM Vehicle ROE r23] initialized; vehicle definitions="
         .. (function() local n=0 for _ in pairs(eligible) do n=n+1 end return n end)()
         .. "; registered vehicles=" .. #roster)
 end
