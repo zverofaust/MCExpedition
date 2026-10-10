@@ -1,10 +1,10 @@
--- MCM Vehicle ROE r21: native movement, defensive engagement prototype.
+-- MCM Vehicle ROE r22: native movement, defensive engagement prototype.
 -- Authors: zvero + ChatGPT
 -- Vehicle manoeuvres intentionally disabled. Native engine handles firing and aiming.
--- Only idle Hold Position vehicles are monitored in this initial validation revision.
+-- Tracks contacts for all three ROE modes; movement and pursuit remain native.
 function gadget:GetInfo()
     return {
-        name = "MCM Vehicle ROE r21",
+        name = "MCM Vehicle ROE r22",
         desc = "Lightweight vehicle engagement policy; native combat movement",
         author = "zvero + ChatGPT",
         date = "2026-10-10",
@@ -17,6 +17,7 @@ end
 if not gadgetHandler:IsSyncedCode() then return false end
 
 local Targeting = VFS.Include("LuaRules/Configs/combat_ai/targeting.lua")
+local Config = VFS.Include("LuaRules/Configs/combat_ai/config.lua")
 local eligible, ranges, tracked, stopped = {}, {}, {}, {}
 local engagements = {}
 local roster, rosterIndex = {}, {}
@@ -24,34 +25,43 @@ local cursor = 1
 local reported = {}
 local SCAN_INTERVAL = 30
 local SCAN_BATCH = 48
-local HOLD_TIMEOUT = 150 -- five seconds at 30 simulation frames per second
+local roeNames = {[0] = "hold", [1] = "maneuver", [2] = "roam"}
 
--- Cache effective ranges once per UnitDef, not on every acquisition pass.
-local function EffectiveRange(defID)
-    local entries, total = {}, 0
+-- Cache longest automatic weapon range and radar range per definition.
+-- Weapon range is an engagement boundary, not a substitute for LOS/radar.
+local function LongestWeaponRange(defID)
+    local longest = 0
     for _, mount in ipairs(UnitDefs[defID].weapons or {}) do
         local wd = WeaponDefs[mount.weaponDef]
-        if wd and wd.range and wd.range > 0 and not wd.manualFire then
-            local weight = math.max(1, (wd.damages and (wd.damages[0] or wd.damages[1])) or 1)
-            entries[#entries + 1] = {range = wd.range, weight = weight}
-            total = total + weight
+        if wd and wd.range and wd.range > longest and not wd.manualFire then
+            longest = wd.range
         end
     end
-    if total == 0 then return nil end
-    table.sort(entries, function(a, b) return a.range < b.range end)
-    local sum = 0
-    for i = 1, #entries do
-        sum = sum + entries[i].weight
-        if sum >= total * 0.5 then return entries[i].range end
-    end
+    return longest > 0 and longest or nil
 end
 
 for defID, ud in pairs(UnitDefs) do
     local cp = ud.customParams or ud.customparams or {}
     if cp.baseclass == "vehicle" and ud.canMove and not ud.canFly then
-        local range = EffectiveRange(defID)
-        if range then eligible[defID], ranges[defID] = true, range end
+        local weapon = LongestWeaponRange(defID)
+        if weapon then
+            eligible[defID] = true
+            ranges[defID] = {
+                weapon = weapon,
+                radar = (ud.radarDistance and ud.radarDistance > 0 and ud.radarDistance)
+                    or (ud.radarDistance == 0 and Config.defaultRadar)
+                    or Config.defaultRadar,
+            }
+        end
     end
+end
+
+local function Bound(defID, mode, kind)
+    local profile = Config.roe[roeNames[mode]]
+    if not profile then return nil end
+    local r = ranges[defID]
+    if mode == 0 and kind == "leash" then return 0 end
+    return math.max(r.weapon, r.radar * profile[kind])
 end
 
 local function Add(unitID, defID)
@@ -82,7 +92,7 @@ local function CanMonitor(unitID)
     if GG.turning and GG.turning[unitID] then return false end
     if Spring.MoveCtrl and Spring.MoveCtrl.IsEnabled and Spring.MoveCtrl.IsEnabled(unitID) then return false end
     local state = Spring.GetUnitStates(unitID)
-    return state and state.movestate == 0
+    return state and roeNames[state.movestate] ~= nil
 end
 
 local function Check(unitID)
@@ -94,18 +104,20 @@ local function Check(unitID)
     local manual = Targeting.HasManualTarget(unitID)
     local can = CanMonitor(unitID)
     local blocked = stopped[unitID]
-    local target = Targeting.AutoTarget(unitID, ranges[defID])
+    local acquisition = mode and Bound(defID, mode, "acquisition")
+    local leash = mode and Bound(defID, mode, "leash")
+    local target = acquisition and Targeting.AutoTarget(unitID, acquisition)
     local frame = Spring.GetGameFrame()
     local engagement = engagements[unitID]
-    local eligibleNow = not blocked and can and not manual and mode == 0
-    if engagement and not eligibleNow then
+    local eligibleNow = not blocked and can and not manual and roeNames[mode] ~= nil
+    if engagement and (not eligibleNow or engagement.mode ~= mode) then
         engagements[unitID] = nil
-        Spring.Echo("[MCM Vehicle ROE r21] unit " .. unitID
+        Spring.Echo("[MCM Vehicle ROE r22] unit " .. unitID
             .. " defensive engagement cancelled (control state changed)")
         engagement = nil
     elseif engagement and target then
         if engagement.contactLost then
-            Spring.Echo("[MCM Vehicle ROE r21] unit " .. unitID .. " contact restored")
+            Spring.Echo("[MCM Vehicle ROE r22] unit " .. unitID .. " contact restored")
         end
         engagement.target = target
         engagement.lastContactFrame = frame
@@ -113,11 +125,11 @@ local function Check(unitID)
     elseif engagement and not target then
         if not engagement.contactLost then
             engagement.contactLost = true
-            Spring.Echo("[MCM Vehicle ROE r21] unit " .. unitID .. " contact lost; holding engagement")
+            Spring.Echo("[MCM Vehicle ROE r22] unit " .. unitID .. " contact lost; holding engagement")
         end
-        if frame - engagement.lastContactFrame >= HOLD_TIMEOUT then
+        if frame - engagement.lastContactFrame >= Config.roe[roeNames[mode]].inactivitySeconds * 30 then
             engagements[unitID] = nil
-            Spring.Echo("[MCM Vehicle ROE r21] unit " .. unitID
+            Spring.Echo("[MCM Vehicle ROE r22] unit " .. unitID
                 .. " defensive engagement ended (contact timeout)")
             engagement = nil
         end
@@ -127,11 +139,14 @@ local function Check(unitID)
         if x then
             engagements[unitID] = {
                 originX = x, originY = y, originZ = z,
+                mode = mode, acquisition = acquisition, leash = leash,
                 target = target, started = frame, lastContactFrame = frame,
                 contactLost = false,
             }
-            Spring.Echo("[MCM Vehicle ROE r21] unit " .. unitID
-                .. " defensive engagement began; origin recorded")
+            Spring.Echo("[MCM Vehicle ROE r22] unit " .. unitID
+                .. " engagement began; ROE=" .. roeNames[mode]
+                .. " acquisition=" .. math.floor(acquisition)
+                .. " leash=" .. math.floor(leash) .. "; origin recorded")
         end
     end
     -- Diagnostic sampling: command queues no longer block defensive contact; report only when a visible enemy is found, and
@@ -144,7 +159,7 @@ local function Check(unitID)
             .. " stopped=" .. tostring(not not blocked)
         if reported[unitID] ~= reason then
             reported[unitID] = reason
-            Spring.Echo("[MCM Vehicle ROE r21] unit " .. unitID
+            Spring.Echo("[MCM Vehicle ROE r22] unit " .. unitID
                 .. " detected enemy " .. target .. " | " .. reason)
         end
         if not blocked and can and not manual then
@@ -160,7 +175,7 @@ end
 function gadget:Initialize()
     local all = Spring.GetAllUnits()
     for i = 1, #all do Add(all[i], Spring.GetUnitDefID(all[i])) end
-    Spring.Echo("[MCM Vehicle ROE r21] initialized; vehicle definitions="
+    Spring.Echo("[MCM Vehicle ROE r22] initialized; vehicle definitions="
         .. (function() local n=0 for _ in pairs(eligible) do n=n+1 end return n end)()
         .. "; registered vehicles=" .. #roster)
 end
