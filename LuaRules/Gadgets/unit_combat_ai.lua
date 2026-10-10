@@ -1,10 +1,10 @@
--- MCM Vehicle ROE r19: native movement, defensive engagement prototype.
+-- MCM Vehicle ROE r20: native movement, defensive engagement prototype.
 -- Authors: zvero + ChatGPT
 -- Vehicle manoeuvres intentionally disabled. Native engine handles firing and aiming.
 -- Only idle Hold Position vehicles are monitored in this initial validation revision.
 function gadget:GetInfo()
     return {
-        name = "MCM Vehicle ROE r19",
+        name = "MCM Vehicle ROE r20",
         desc = "Lightweight vehicle engagement policy; native combat movement",
         author = "zvero + ChatGPT",
         date = "2026-10-10",
@@ -18,6 +18,7 @@ if not gadgetHandler:IsSyncedCode() then return false end
 
 local Targeting = VFS.Include("LuaRules/Configs/combat_ai/targeting.lua")
 local eligible, ranges, tracked, stopped = {}, {}, {}, {}
+local engagements = {}
 local roster, rosterIndex = {}, {}
 local cursor = 1
 local reported = {}
@@ -59,7 +60,7 @@ local function Add(unitID, defID)
 end
 
 local function Remove(unitID)
-    tracked[unitID], stopped[unitID], reported[unitID] = nil, nil, nil
+    tracked[unitID], stopped[unitID], reported[unitID], engagements[unitID] = nil, nil, nil, nil
     local index = rosterIndex[unitID]
     if not index then return end
     local last = roster[#roster]
@@ -93,6 +94,21 @@ local function Check(unitID)
     local can = CanMonitor(unitID)
     local blocked = stopped[unitID]
     local target = Targeting.AutoTarget(unitID, ranges[defID])
+    local engagement = engagements[unitID]
+    if engagement and (not target or blocked or not can or manual or mode ~= 0) then
+        engagements[unitID] = nil
+        Spring.Echo("[MCM Vehicle ROE r20] unit " .. unitID .. " defensive engagement ended")
+        engagement = nil
+    end
+    if target and not engagement and not blocked and can and not manual and mode == 0 then
+        local x, y, z = Spring.GetUnitPosition(unitID)
+        if x then
+            engagements[unitID] = {originX = x, originY = y, originZ = z, target = target, started = Spring.GetGameFrame()}
+            Spring.Echo("[MCM Vehicle ROE r20] unit " .. unitID .. " defensive engagement began; origin recorded")
+        end
+    elseif target and engagement then
+        engagement.target = target
+    end
     -- Diagnostic sampling: command queues no longer block defensive contact; report only when a visible enemy is found, and
     -- only once per change in gate status to avoid per-frame log spam.
     if target then
@@ -103,7 +119,7 @@ local function Check(unitID)
             .. " stopped=" .. tostring(not not blocked)
         if reported[unitID] ~= reason then
             reported[unitID] = reason
-            Spring.Echo("[MCM Vehicle ROE r19] unit " .. unitID
+            Spring.Echo("[MCM Vehicle ROE r20] unit " .. unitID
                 .. " detected enemy " .. target .. " | " .. reason)
         end
         if not blocked and can and not manual then
@@ -119,7 +135,7 @@ end
 function gadget:Initialize()
     local all = Spring.GetAllUnits()
     for i = 1, #all do Add(all[i], Spring.GetUnitDefID(all[i])) end
-    Spring.Echo("[MCM Vehicle ROE r19] initialized; vehicle definitions="
+    Spring.Echo("[MCM Vehicle ROE r20] initialized; vehicle definitions="
         .. (function() local n=0 for _ in pairs(eligible) do n=n+1 end return n end)()
         .. "; registered vehicles=" .. #roster)
 end
@@ -138,15 +154,15 @@ function gadget:AllowCommand(unitID, defID, teamID, cmdID, params, opts)
     if not opts.internal and not opts.shift then
         if cmdID == CMD.STOP then
             stopped[unitID] = true
-            tracked[unitID] = nil
+            tracked[unitID], engagements[unitID] = nil, nil
         elseif cmdID == CMD.MOVE_STATE then
             stopped[unitID] = nil
-            tracked[unitID] = nil
+            tracked[unitID], engagements[unitID] = nil, nil
         elseif cmdID == CMD.MOVE or cmdID == CMD.FIGHT
             or cmdID == CMD.PATROL or cmdID == CMD.GUARD
             or cmdID == CMD.ATTACK then
             stopped[unitID] = nil
-            tracked[unitID] = nil
+            tracked[unitID], engagements[unitID] = nil, nil
         end
     end
     -- Never consume or replace player commands: native engine executes them.
@@ -165,5 +181,5 @@ function gadget:GameFrame(frame)
 end
 
 function gadget:Shutdown()
-    tracked, stopped, reported = {}, {}, {}
+    tracked, stopped, reported, engagements = {}, {}, {}, {}
 end
