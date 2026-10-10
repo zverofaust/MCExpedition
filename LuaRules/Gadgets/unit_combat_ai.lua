@@ -1,10 +1,10 @@
--- MCM Vehicle ROE r17: native movement, defensive engagement prototype.
+-- MCM Vehicle ROE r18: native movement, defensive engagement prototype.
 -- Authors: zvero + ChatGPT
 -- Vehicle manoeuvres intentionally disabled. Native engine handles firing and aiming.
 -- Only idle Hold Position vehicles are monitored in this initial validation revision.
 function gadget:GetInfo()
     return {
-        name = "MCM Vehicle ROE r17",
+        name = "MCM Vehicle ROE r18",
         desc = "Lightweight vehicle engagement policy; native combat movement",
         author = "zvero + ChatGPT",
         date = "2026-10-10",
@@ -16,11 +16,11 @@ end
 
 if not gadgetHandler:IsSyncedCode() then return false end
 
-local Config = VFS.Include("LuaRules/Configs/combat_ai/config.lua")
 local Targeting = VFS.Include("LuaRules/Configs/combat_ai/targeting.lua")
 local eligible, ranges, tracked, stopped = {}, {}, {}, {}
 local roster, rosterIndex = {}, {}
 local cursor = 1
+local reported = {}
 local SCAN_INTERVAL = 30
 local SCAN_BATCH = 48
 
@@ -59,7 +59,7 @@ local function Add(unitID, defID)
 end
 
 local function Remove(unitID)
-    tracked[unitID], stopped[unitID] = nil, nil
+    tracked[unitID], stopped[unitID], reported[unitID] = nil, nil, nil
     local index = rosterIndex[unitID]
     if not index then return end
     local last = roster[#roster]
@@ -84,30 +84,41 @@ end
 
 local function Check(unitID)
     local defID = Spring.GetUnitDefID(unitID)
-    if not defID or not eligible[defID] or stopped[unitID]
-        or not CanMonitor(unitID) or not Idle(unitID)
-        or Targeting.HasManualTarget(unitID) then
-        tracked[unitID] = nil
-        return
-    end
+    if not defID or not eligible[defID] then return end
+    local state = Spring.GetUnitStates(unitID)
+    local mode = state and state.movestate
+    local idle = Idle(unitID)
+    local manual = Targeting.HasManualTarget(unitID)
+    local can = CanMonitor(unitID)
+    local blocked = stopped[unitID]
     local target = Targeting.AutoTarget(unitID, ranges[defID])
+    -- Diagnostic sampling: report only when a visible enemy is found, and
+    -- only once per change in gate status to avoid per-frame log spam.
     if target then
-        -- Native Hold Position already permits weapon firing without a move order.
-        -- Observe acquisition rather than forcing a target or issuing a movement goal.
-        if tracked[unitID] ~= target then
+        local reason = "mode=" .. tostring(mode)
+            .. " idle=" .. tostring(idle)
+            .. " manual=" .. tostring(not not manual)
+            .. " canMonitor=" .. tostring(not not can)
+            .. " stopped=" .. tostring(not not blocked)
+        if reported[unitID] ~= reason then
+            reported[unitID] = reason
+            Spring.Echo("[MCM Vehicle ROE r18] unit " .. unitID
+                .. " detected enemy " .. target .. " | " .. reason)
+        end
+        if not blocked and can and idle and not manual then
             tracked[unitID] = target
-            Spring.Echo("[MCM Vehicle ROE r17] unit " .. unitID
-                .. " defensive contact " .. target .. " (native firing)")
+        else
+            tracked[unitID] = nil
         end
     else
-        tracked[unitID] = nil
+        tracked[unitID], reported[unitID] = nil, nil
     end
 end
 
 function gadget:Initialize()
     local all = Spring.GetAllUnits()
     for i = 1, #all do Add(all[i], Spring.GetUnitDefID(all[i])) end
-    Spring.Echo("[MCM Vehicle ROE r17] initialized; vehicle definitions="
+    Spring.Echo("[MCM Vehicle ROE r18] initialized; vehicle definitions="
         .. (function() local n=0 for _ in pairs(eligible) do n=n+1 end return n end)()
         .. "; registered vehicles=" .. #roster)
 end
@@ -153,5 +164,5 @@ function gadget:GameFrame(frame)
 end
 
 function gadget:Shutdown()
-    tracked, stopped = {}, {}
+    tracked, stopped, reported = {}, {}, {}
 end
