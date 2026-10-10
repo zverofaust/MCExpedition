@@ -1,10 +1,10 @@
--- MCM Vehicle ROE r24: native movement, defensive engagement prototype.
+-- MCM Vehicle ROE r25: native movement, defensive engagement prototype.
 -- Authors: zvero + ChatGPT
 -- Vehicle manoeuvres intentionally disabled. Native engine handles firing and aiming.
 -- Shared Maneuver/Roam pursuit and return for idle vehicles; native firing retained.
 function gadget:GetInfo()
     return {
-        name = "MCM Vehicle ROE r24",
+        name = "MCM Vehicle ROE r25",
         desc = "Lightweight vehicle engagement policy; native combat movement",
         author = "zvero + ChatGPT",
         date = "2026-10-10",
@@ -121,7 +121,7 @@ end
 local function ReturnHome(unitID, e)
     if e.phase ~= "return" then
         e.phase = "return"
-        Spring.Echo("[MCM Vehicle ROE r24] unit " .. unitID .. " returning to origin")
+        Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID .. " returning to origin")
     end
     MoveTo(unitID, e, e.originX, e.originZ, ARRIVAL_RADIUS)
 end
@@ -136,7 +136,7 @@ local function UpdateMovement(unitID, e, target, frame)
         if originDist <= ARRIVAL_RADIUS then
             StopSteering(unitID, e)
             engagements[unitID], active[unitID] = nil, nil
-            Spring.Echo("[MCM Vehicle ROE r24] unit " .. unitID .. " returned to origin")
+            Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID .. " returned to origin")
         else
             ReturnHome(unitID, e)
         end
@@ -191,12 +191,15 @@ local function Check(unitID)
     if engagement and (not eligibleNow or engagement.mode ~= mode) then
         StopSteering(unitID, engagement)
         engagements[unitID], active[unitID] = nil, nil
-        Spring.Echo("[MCM Vehicle ROE r24] unit " .. unitID
+        Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID
             .. " defensive engagement cancelled (control state changed)")
         engagement = nil
+    elseif engagement and engagement.phase == "return" then
+        -- Return is terminal for this engagement: no contact timeout or reacquisition.
+        -- UpdateMovement owns arrival detection and cleanup.
     elseif engagement and target then
         if engagement.contactLost then
-            Spring.Echo("[MCM Vehicle ROE r24] unit " .. unitID .. " contact restored")
+            Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID .. " contact restored")
         end
         engagement.target = target
         engagement.lastContactFrame = frame
@@ -204,7 +207,7 @@ local function Check(unitID)
     elseif engagement and not target then
         if not engagement.contactLost then
             engagement.contactLost = true
-            Spring.Echo("[MCM Vehicle ROE r24] unit " .. unitID .. " contact lost; holding engagement")
+            Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID .. " contact lost; holding engagement")
         end
         if frame - engagement.lastContactFrame >= Config.roe[roeNames[mode]].inactivitySeconds * 30 then
             if mode == 0 then
@@ -212,9 +215,9 @@ local function Check(unitID)
             else
                 ReturnHome(unitID, engagement)
             end
-            Spring.Echo("[MCM Vehicle ROE r24] unit " .. unitID
+            Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID
                 .. " defensive engagement ended (contact timeout)")
-            engagement = nil
+            if mode == 0 then engagement = nil end
         end
     end
     -- Explicitly hand off observed targets to native weapon aiming. This does not
@@ -236,7 +239,7 @@ local function Check(unitID)
                 contactLost = false,
             }
             if mode ~= 0 and commandID == nil then active[unitID] = true end
-            Spring.Echo("[MCM Vehicle ROE r24] unit " .. unitID
+            Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID
                 .. " engagement began; ROE=" .. roeNames[mode]
                 .. " acquisition=" .. math.floor(acquisition)
                 .. " leash=" .. math.floor(leash) .. "; origin recorded")
@@ -255,7 +258,7 @@ local function Check(unitID)
             .. " stopped=" .. tostring(not not blocked)
         if reported[unitID] ~= reason then
             reported[unitID] = reason
-            Spring.Echo("[MCM Vehicle ROE r24] unit " .. unitID
+            Spring.Echo("[MCM Vehicle ROE r25] unit " .. unitID
                 .. " detected enemy " .. target .. " | " .. reason)
         end
         if not blocked and can and not manual then
@@ -271,7 +274,7 @@ end
 function gadget:Initialize()
     local all = Spring.GetAllUnits()
     for i = 1, #all do Add(all[i], Spring.GetUnitDefID(all[i])) end
-    Spring.Echo("[MCM Vehicle ROE r24] initialized; vehicle definitions="
+    Spring.Echo("[MCM Vehicle ROE r25] initialized; vehicle definitions="
         .. (function() local n=0 for _ in pairs(eligible) do n=n+1 end return n end)()
         .. "; registered vehicles=" .. #roster)
 end
