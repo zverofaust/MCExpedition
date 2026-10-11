@@ -4,6 +4,7 @@
 -- A direct attack against a garrison's units or structures mobilizes that
 -- installation's own combat vehicles toward the attacking Lance Mech.
 -- Responses are local: no escalation-driven mobilization or reinforcements.
+-- Defenders return to their original deployment positions after contact expires.
 --
 -- Authors: zvero + ChatGPT
 --------------------------------------------------------------------------------
@@ -48,12 +49,16 @@ local function BuildGroups()
     if groupsBuilt or Spring.GetGameRulesParam("mcm_contract_active") ~= 1 then return end
     local bases = GG.MCMExpeditionBases or {}
     for _, base in pairs(bases) do
-        local group = {site = base, units = {}, lastContactFrame = -1}
+        local group = {site = base, units = {}, home = {}, lastContactFrame = -1, responding = false}
         for i = 1, #(base.units or {}) do
             local id = base.units[i]
             if IsAlive(id) then
                 unitToGroup[id] = group
-                if IsCombatVehicle(id) then group.units[#group.units + 1] = id end
+                if IsCombatVehicle(id) then
+                    group.units[#group.units + 1] = id
+                    local x, _, z = Spring.GetUnitPosition(id)
+                    if x then group.home[id] = {x, z} end
+                end
             end
         end
         if #group.units > 0 then groups[#groups + 1] = group end
@@ -67,6 +72,7 @@ local function Respond(group, attackerID, frame)
     local x, _, z = Spring.GetUnitPosition(attackerID)
     if not x then return end
     group.lastContactFrame = frame
+    group.responding = true
     group.lastKnownX, group.lastKnownZ = x, z
     Spring.SetGameRulesParam("mcm_enemy_contact", 1, {public = true})
     Spring.SetGameRulesParam("mcm_enemy_contact_frame", frame, {public = true})
@@ -77,6 +83,20 @@ local function Respond(group, attackerID, frame)
         if IsCombatVehicle(id) then
             Spring.SetUnitRulesParam(id, "mcm_response_mobilized", 1, {public = true})
             Spring.GiveOrderToUnit(id, CMD.FIGHT, {x, Spring.GetGroundHeight(x, z), z}, {})
+        end
+    end
+end
+
+local function ReturnHome(group)
+    group.responding = false
+    for i = 1, #group.units do
+        local id = group.units[i]
+        local home = group.home[id]
+        if home and IsCombatVehicle(id) then
+            Spring.SetUnitRulesParam(id, "mcm_response_mobilized", 0, {public = true})
+            Spring.GiveOrderToUnit(id, CMD.MOVE, {
+                home[1], Spring.GetGroundHeight(home[1], home[2]), home[2]
+            }, {})
         end
     end
 end
@@ -98,9 +118,13 @@ function gadget:GameFrame(frame)
     local active, mobilized = false, 0
     for i = 1, #groups do
         local group = groups[i]
-        if group.lastContactFrame >= 0 then
-            mobilized = mobilized + 1
-            if frame - group.lastContactFrame <= CONTACT_MEMORY_FRAMES then active = true end
+        if group.responding then
+            if frame - group.lastContactFrame > CONTACT_MEMORY_FRAMES then
+                ReturnHome(group)
+            else
+                mobilized = mobilized + 1
+                active = true
+            end
         end
     end
     Spring.SetGameRulesParam("mcm_enemy_contact", active and 1 or 0, {public = true})
