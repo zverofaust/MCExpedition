@@ -6,10 +6,11 @@ function widget:GetInfo()
  return {name="MCM Enemy Faction Wheel",desc="Select enemy faction before deployment; /enemyfaction with cheats",author="zvero + ChatGPT",date="2026-10-11",license="GPL v2",layer=1100,enabled=true}
 end
 local ownership=VFS.Include("LuaRules/Configs/mcl_mode_gadgets.lua")
-if ownership.GetMode()~="mercs" then return false end
+if ownership.GetMode()~="mercs" then return end
 local choices={{"RANDOM","Random"},{"FS","Federated Suns"},{"LA","Lyran Alliance"},{"DC","Draconis Combine"},{"CC","Capellan Confederation"},{"FW","Free Worlds League"}}
-local visible=true
+local visible=false
 local finished=false
+local initialWindow=true
 local elapsed=0
 local timeout=15
 local cx,cy,inner,outer=0,0,75,235
@@ -30,6 +31,7 @@ local function Hover(x,y)
  return math.floor(a/(math.pi*2/#choices))+1
 end
 local function Choose(key)
+ initialWindow=false
  Spring.SendLuaRulesMsg("MCMENEMYFACTION|"..key)
  visible=false
  finished=true
@@ -37,17 +39,18 @@ end
 function widget:Initialize()
  if Spring.GetSpectatingState() or Spring.IsReplay() then widgetHandler:RemoveWidget(widget) return end
  Geometry()
+ visible=Spring.GetGameRulesParam("mcm_contract_active")~=1
 end
 function widget:ViewResize() Geometry() end
 function widget:Update(dt)
  if not visible then return end
- if Spring.GetGameRulesParam("mcm_contract_active")==1 and not finished then
+ if Spring.GetGameRulesParam("mcm_contract_active")==1 and initialWindow then
   visible=false
   finished=true
   return
  end
  elapsed=elapsed+(dt or 0)
- if elapsed>=timeout and not finished then Choose("RANDOM") end
+ if elapsed>=timeout and initialWindow then Choose("RANDOM") end
 end
 function widget:DrawScreen()
  if not visible then return end
@@ -91,12 +94,13 @@ function widget:KeyPress(key)
  return true
 end
 function widget:TextCommand(command)
- if command~="enemyfaction" then return false end
+ if not tostring(command or ""):match("^%s*enemyfaction%s*$") then return false end
  if not (Spring.IsCheatingEnabled and Spring.IsCheatingEnabled()) then
   Spring.Echo("[MCM Enemy Faction] /enemyfaction requires /cheat")
   return true
  end
  finished=false
+ initialWindow=false
  visible=true
  elapsed=0
  return true
