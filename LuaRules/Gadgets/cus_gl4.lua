@@ -931,6 +931,10 @@ local function BuildTexmodTexturePath(unitDef, texmod, teamID)
 	local stem = filename:sub(1, #filename - 4)
 	if lower:sub(-9) == "_team.dds" then
 		stem = filename:sub(1, #filename - 9)
+	elseif lower:sub(-8) == "_mil.dds" then
+		-- Some legacy vehicle models use _MIL as their native paint suffix.
+		-- Strip it like _Team so faction texmods retain the chassis_1 naming.
+		stem = filename:sub(1, #filename - 8)
 	end
 
 	local teamFaction = GetTeamFactionFolder(teamID)
