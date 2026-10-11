@@ -155,7 +155,11 @@ local function GetSideDefinition(shortName)
 end
 
 local function AssignEnemyFaction(teamID)
-	local faction = defs.enemyFactions[math.random(#defs.enemyFactions)]
+	local requested = Spring.GetGameRulesParam("mcm_enemy_faction_request")
+	local faction = requested and requested ~= "RANDOM" and requested or defs.enemyFactions[math.random(#defs.enemyFactions)]
+	if not (function() for i = 1, #defs.enemyFactions do if defs.enemyFactions[i] == faction then return true end end end)() then
+		faction = defs.enemyFactions[math.random(#defs.enemyFactions)]
+	end
 	local side = GetSideDefinition(faction)
 	local texmod = side and side.texmods and side.texmods[1] or "Team"
 
