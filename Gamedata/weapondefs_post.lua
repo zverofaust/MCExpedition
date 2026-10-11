@@ -143,7 +143,7 @@ for unitName, ud in pairs(UnitDefs) do
 			table.insert(ud.sfxtypes.explosiongenerators, "custom:Sparks")
 			if ud.corpse and not FeatureDefs[ud.corpse] then -- don't override existing corpses e.g. Bishop
 				--Spring.Echo("[WeaponDefs_post.lua]:" .. unitName .. " has a corpse (" .. ud.corpse .. ")")
-				local modelPath = ud.objectname:sub(1, -(string.len(unitName .. ".s3o")+1))
+				local modelPath = ud.objectname:match("^(.*[/\\])") or ""
 				-- First level corpse
 				local corpseModelBase = modelPath .. "corpse/" .. unitName:sub(4,-1) .. "_x"
 				local corpseModels = {
