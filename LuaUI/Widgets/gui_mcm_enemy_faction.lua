@@ -13,6 +13,7 @@ local finished=false
 local initialWindow=true
 local elapsed=0
 local timeout=15
+local ready=false
 local cx,cy,inner,outer=0,0,75,235
 local hovered=nil
 local function Geometry()
@@ -35,18 +36,32 @@ local function Choose(key)
  Spring.SendLuaRulesMsg("MCMENEMYFACTION|"..key)
  visible=false
  finished=true
+ WG.MCMEnemyFactionSelectionComplete=true
 end
 function widget:Initialize()
  if Spring.GetSpectatingState() or Spring.IsReplay() then widgetHandler:RemoveWidget(widget) return end
  Geometry()
- visible=Spring.GetGameRulesParam("mcm_contract_active")~=1
+ WG.MCMEnemyFactionSelectionComplete=false
+ visible=false
 end
 function widget:ViewResize() Geometry() end
 function widget:Update(dt)
+ if not ready then
+  if Spring.GetGameRulesParam("mcl_mode")~="mercs" then return end
+  ready=true
+  if Spring.GetGameRulesParam("mcm_contract_active")==1 or Spring.GetGameRulesParam("mcm_lance_ready")==1 then
+   finished=true
+   WG.MCMEnemyFactionSelectionComplete=true
+  else
+   visible=true
+   elapsed=0
+  end
+ end
  if not visible then return end
  if Spring.GetGameRulesParam("mcm_contract_active")==1 and initialWindow then
   visible=false
   finished=true
+  WG.MCMEnemyFactionSelectionComplete=true
   return
  end
  elapsed=elapsed+(dt or 0)
@@ -101,6 +116,7 @@ function widget:TextCommand(command)
  end
  finished=false
  initialWindow=false
+ ready=true
  visible=true
  elapsed=0
  return true
