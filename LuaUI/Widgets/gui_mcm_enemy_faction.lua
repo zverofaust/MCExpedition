@@ -14,6 +14,7 @@ local initialWindow=true
 local elapsed=0
 local timeout=15
 local ready=false
+local visibleFrames=0
 local cx,cy,inner,outer=0,0,75,235
 local hovered=nil
 local function Geometry()
@@ -37,6 +38,7 @@ local function Choose(key)
  visible=false
  finished=true
  WG.MCMEnemyFactionSelectionComplete=true
+ Spring.Echo('[MCM Enemy Faction] Selected '..key)
 end
 function widget:Initialize()
  if Spring.GetSpectatingState() or Spring.IsReplay() then widgetHandler:RemoveWidget(widget) return end
@@ -55,17 +57,17 @@ function widget:Update(dt)
   else
    visible=true
    elapsed=0
+   visibleFrames=0
+   Spring.Echo('[MCM Enemy Faction] Initial wheel opened')
   end
  end
  if not visible then return end
- if Spring.GetGameRulesParam("mcm_contract_active")==1 and initialWindow then
-  visible=false
-  finished=true
-  WG.MCMEnemyFactionSelectionComplete=true
-  return
- end
- elapsed=elapsed+(dt or 0)
- if elapsed>=timeout and initialWindow then Choose("RANDOM") end
+ -- Do not dismiss the initial wheel on contract-state changes: only an
+ -- explicit selection or the full timeout can complete the startup handshake.
+ -- Count only reasonable frame deltas, guarding against an oversized first Update.
+ elapsed=elapsed+math.min(math.max(dt or 0,0),0.25)
+ visibleFrames=visibleFrames+1
+ if elapsed>=timeout and visibleFrames>=30 and initialWindow then Choose("RANDOM") end
 end
 function widget:DrawScreen()
  if not visible then return end
