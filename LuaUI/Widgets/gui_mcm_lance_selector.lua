@@ -275,6 +275,11 @@ local function RemoveSelector()
 end
 
 function widget:Update()
+	-- Wait until the optional enemy-faction wheel completes its initial choice.
+	-- The wheel publishes this flag only after it has initialized in Mercs mode.
+	if Spring.GetGameRulesParam("mcl_mode") == "mercs" and WG.MCMEnemyFactionSelectionComplete ~= true then
+		return
+	end
 	if initialized then
 		if Spring.GetGameRulesParam("mcm_lance_ready") == 1 or Spring.GetGameRulesParam("mcm_lance_inbound") == 1 then
 			RemoveSelector()
